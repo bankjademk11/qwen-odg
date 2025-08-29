@@ -1,77 +1,70 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Container, Row, Col, Table, Button, Form, Modal, ListGroup } from 'react-bootstrap';
-import { useLocation, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Container, Row, Col, Table, Button, Form, Spinner } from 'react-bootstrap';
+import { useNavigate } from 'react-router-dom';
 import NavigationBar from './NavigationBar';
 
-const TRANSFERS_STORAGE_KEY = 'appTransfers'; // Define a key for localStorage
+// Helper function to get today's date in YYYY-MM-DD format
+const getTodayDate = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 const TransferPage: React.FC = () => {
-  // Load transfers from localStorage on initial render, or start with an empty array
-  const [transfers, setTransfers] = useState(() => {
-    try {
-      const storedTransfers = localStorage.getItem(TRANSFERS_STORAGE_KEY);
-      return storedTransfers ? JSON.parse(storedTransfers) : [];
-    } catch (error) {
-      console.error("Failed to parse transfers from localStorage", error);
-      return [];
-    }
-  });
+  const [transfers, setTransfers] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
+  // Default the date filter to today
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayDate());
   const [transferNumber, setTransferNumber] = useState<string>('');
-  const [selectedDate, setSelectedDate] = useState<string>('');
-
-  // State for the View Details Modal
-  const [showModal, setShowModal] = useState(false);
-  const [selectedTransfer, setSelectedTransfer] = useState<any>(null);
 
   const navigate = useNavigate();
-  const location = useLocation();
-  const processedTransferIdRef = useRef<number | null>(null);
 
-  // Save transfers to localStorage whenever the state changes
+  // Fetch transfers whenever the selectedDate changes
   useEffect(() => {
-    try {
-      localStorage.setItem(TRANSFERS_STORAGE_KEY, JSON.stringify(transfers));
-    } catch (error) {
-      console.error("Failed to save transfers to localStorage", error);
-    }
-  }, [transfers]);
+    const fetchTransfers = async () => {
+      if (!selectedDate) return; // Do not fetch if date is empty
 
-  // Effect to handle receiving a new transfer from the Restock page
-  useEffect(() => {
-    const newTransfer = location.state?.newTransfer;
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(`http://localhost:3001/api/transfers?date=${selectedDate}`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        setTransfers(data);
+      } catch (e: any) {
+        setError(e.message);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    // Use a ref to prevent duplicate additions from React.StrictMode double-invokes
-    if (newTransfer && newTransfer.id !== processedTransferIdRef.current) {
-      setTransfers(prevTransfers => [newTransfer, ...prevTransfers]);
-      
-      // Mark this transfer ID as processed
-      processedTransferIdRef.current = newTransfer.id;
-      
-      // Clear the state from location to prevent re-adding on refresh
-      navigate(location.pathname, { replace: true, state: {} });
-    }
-  }, [location.state, navigate]);
+    fetchTransfers();
+  }, [selectedDate]);
 
   const handleCreateTransfer = () => {
     navigate('/restock');
   };
 
-  const handleDelete = (transferId: number) => {
-    if (window.confirm('คุณแน่ใจหรือไม่ว่าต้องการลบรายการนี้?')) {
-      setTransfers(prevTransfers => prevTransfers.filter(t => t.id !== transferId));
-    }
+  const handleDelete = (transferId: string) => {
+    // TODO: Implement API call for deletion
+    alert(`(ยังไม่ได้ทำ) ลบรายการ: ${transferId}`);
   };
 
   const handleView = (transfer: any) => {
-    setSelectedTransfer(transfer);
-    setShowModal(true);
+    navigate(`/transfers/${transfer.id}`, { state: { transferDetails: transfer } });
   };
 
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setSelectedTransfer(null);
-  };
+  // TODO: Implement client-side filtering for transferNumber if needed, 
+  // or create a new API endpoint for server-side search.
+  const filteredTransfers = transfers.filter(t => 
+    t.transfer_no.toLowerCase().includes(transferNumber.toLowerCase())
+  );
 
   return (
     <div>
@@ -107,71 +100,51 @@ const TransferPage: React.FC = () => {
         </Row>
 
         <h2>ລາຍການຂໍ້ໂອນ</h2>
-        <Table striped bordered hover responsive>
-          <thead>
-            <tr>
-              <th>ວັນທີເວລາຂໍ້ໂອນ</th>
-              <th>ເລກທີ່ຂໍ້ໂອນ</th>
-              <th>ຈຳນວນຂໍ້ໂອນ</th>
-              <th>ຜູ້ສ້າງ</th>
-              <th>ຈັດການ</th>
-            </tr>
-          </thead>
-          <tbody>
-            {transfers.length === 0 ? (
+        {loading ? (
+          <div className="text-center">
+            <Spinner animation="border" />
+            <p>ກຳລັງໂຫຼດຂໍ້ມູນຂອງວັນທີ {selectedDate}...</p>
+          </div>
+        ) : error ? (
+          <p style={{ color: 'red' }}>เกิดข้อผิดพลาด: {error}</p>
+        ) : (
+          <Table striped bordered hover responsive>
+            <thead>
               <tr>
-                <td colSpan={5} className="text-center">ບໍ່ມີລາຍການຂໍ້ໂອນ</td>
+                <th>ວັນທີເວລາຂໍ້ໂອນ</th>
+                <th>ເລກທີ່ຂໍ້ໂອນ</th>
+                <th>ຈຳນວນຂໍ້ໂອນ</th>
+                <th>ຜູ້ສ້າງ</th>
+                <th>ຈັດການ</th>
               </tr>
-            ) : (
-              transfers.map((transfer) => (
-                <tr key={transfer.id}>
-                  <td>{transfer.doc_date_time}</td>
-                  <td>{transfer.transfer_no}</td>
-                  <td>{transfer.quantity}</td>
-                  <td>{transfer.creator}</td>
-                  <td>
-                    <Button variant="info" size="sm" className="me-2" onClick={() => handleView(transfer)}>
-                      ເບິ່ງ
-                    </Button>
-                    <Button variant="danger" size="sm" onClick={() => handleDelete(transfer.id)}>
-                      ລຶບ
-                    </Button>
-                  </td>
+            </thead>
+            <tbody>
+              {filteredTransfers.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="text-center">ບໍ່ມີລາຍການຂໍ້ໂອນໃນວັນທີ່ເລືອກ</td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </Table>
+              ) : (
+                filteredTransfers.map((transfer) => (
+                  <tr key={transfer.id}>
+                    <td>{transfer.doc_date_time}</td>
+                    <td>{transfer.transfer_no}</td>
+                    <td>{Math.round(transfer.quantity || 0)}</td>
+                    <td>{transfer.creator}</td>
+                    <td>
+                      <Button variant="info" size="sm" className="me-2" onClick={() => handleView(transfer)}>
+                        ເບິ່ງ
+                      </Button>
+                      <Button variant="danger" size="sm" onClick={() => handleDelete(transfer.id)}>
+                        ລຶບ
+                      </Button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </Table>
+        )}
       </Container>
-
-      {/* View Details Modal */}
-      <Modal show={showModal} onHide={handleCloseModal} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>ລາຍລະອຽດຂໍ້ໂອນ: {selectedTransfer?.transfer_no}</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          {selectedTransfer?.details && selectedTransfer.details.length > 0 ? (
-            <ListGroup variant="flush">
-              {selectedTransfer.details.map((item: any) => (
-                <ListGroup.Item key={item.item_code} className="d-flex justify-content-between align-items-start">
-                  <div className="ms-2 me-auto">
-                    <div className="fw-bold">{item.item_name}</div>
-                    <small className="text-muted">{item.item_code}</small>
-                  </div>
-                  <span className="badge bg-primary rounded-pill">{item.quantity} {item.unit_code}</span>
-                </ListGroup.Item>
-              ))}
-            </ListGroup>
-          ) : (
-            <p>ບໍ່ມີລາຍລະອຽດສິນຄ້າ</p>
-          )}
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseModal}>
-            ปิด
-          </Button>
-        </Modal.Footer>
-      </Modal>
     </div>
   );
 };

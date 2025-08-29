@@ -22,13 +22,19 @@ function RestockRequest() {
   });
   const [quantities, setQuantities] = useState<{ [key: string]: string }>({});
   const [selectedDate, setSelectedDate] = useState<string>('');
-  const [selectedLocation, setSelectedLocation] = useState<string>('');
+  const [selectedLocation, setSelectedLocation] = useState<string>(''); // wh_code (source)
+  const [selectedWhCode2, setSelectedWhCode2] = useState<string>(''); // wh_code_2 (destination)
   const [selectedCondition, setSelectedCondition] = useState<string>('');
   const [offset, setOffset] = useState<number>(0);
   const [hasMore, setHasMore] = useState<boolean>(true);
   const loadingMoreRef = useRef<boolean>(false);
-  const scrollableContainerRef = useRef<HTMLDivElement>(null); // Ref for the scrollable div
+  const scrollableContainerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const creatorCode = user.code || null; // Fallback to hardcoded if user not found
+  console.log('RestockRequest: User object from localStorage:', user);
+  console.log('RestockRequest: creatorCode being used:', creatorCode);
 
   const getTodayDate = () => {
     const today = new Date();
@@ -38,8 +44,19 @@ function RestockRequest() {
     return `${year}-${month}-${day}`;
   };
 
+  const getConditionFromShelfCode = (shelfCode: string) => {
+    if (shelfCode.endsWith('01')) return 'สภาพดี';
+    if (shelfCode.endsWith('02')) return 'สภาพดีมาก';
+    if (shelfCode.endsWith('03')) return 'สภาพใหม่';
+    return 'สภาพดี'; // Default if no match
+  };
+
   useEffect(() => {
     setSelectedDate(getTodayDate());
+    // Set default values for new location filters
+    setSelectedLocation(user.ic_wht || '1302'); // Default source warehouse from user or fallback
+    setSelectedWhCode2(user.ic_wht || '1301'); // Default destination warehouse from user or fallback
+    setSelectedCondition(getConditionFromShelfCode(user.ic_shelf || '')); // Set default condition from user's ic_shelf
   }, []);
 
   useEffect(() => {
@@ -57,10 +74,10 @@ function RestockRequest() {
       const locationParam = location ? `&wh_code=${location}` : '';
       const response = await fetch(`http://localhost:3001/api/analysis-data?limit=${ITEMS_PER_LOAD}&offset=${currentOffset}${dateParam}${locationParam}`);
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(`HTTP http! status: ${response.status}`);
       }
       const result = await response.json();
-      const sortedData = result.sort((a: any, b: any) => a.balance_qty - b.balance_qty);
+      const sortedData = result.sort((a: any, b: any) => a.balance_qty - b.qty);
 
       if (currentOffset === 0) {
         setData(sortedData);
@@ -91,19 +108,17 @@ function RestockRequest() {
     fetchData(0, selectedDate, selectedLocation);
   }, [selectedDate, selectedLocation]);
 
-  // Modified useEffect for infinite scroll to use the container ref
   useEffect(() => {
     const container = scrollableContainerRef.current;
     const handleScroll = () => {
       if (container) {
         const { scrollHeight, scrollTop, clientHeight } = container;
-        // Load more when the user is 1px from the bottom
         if (scrollHeight - scrollTop <= clientHeight + 1 && hasMore && !loading && !loadingMoreRef.current) {
           loadingMoreRef.current = true;
           setTimeout(() => {
             setOffset(prevOffset => prevOffset + ITEMS_PER_LOAD);
             loadingMoreRef.current = false;
-          }, 1000); // Reduced delay for better UX
+          }, 1000);
         }
       }
     };
@@ -150,24 +165,68 @@ function RestockRequest() {
     setRestockItems(prevItems => prevItems.filter(item => item.item_code !== itemCode));
   };
 
-  const handleGenerateBill = () => {
+  const getShelfCodeByCondition = (condition: string, warehouseCode: string) => {
+    let suffix = '';
+    switch (condition) {
+      case 'สภาพดี':
+        suffix = '01';
+        break;
+      case 'สภาพดีมาก':
+        suffix = '02';
+        break;
+      case 'สภาพใหม่':
+        suffix = '03';
+        break;
+      default:
+        return ''; // For 'ทั้งหมด' or any other unmapped value
+    }
+    return warehouseCode ? `${warehouseCode}${suffix}` : '';
+  };
+
+  const handleGenerateBill = async () => {
     if (restockItems.length === 0) {
       alert('ກະລຸນາເລືອກສິນຄ້າທີ່ຈະເບີກກ່ອນ.');
       return;
     }
-    const totalQuantity = restockItems.reduce((sum, item) => sum + item.quantity, 0);
-    const now = new Date();
-    const newTransfer = {
-      id: Date.now(),
-      doc_date_time: now.toLocaleString('sv-SE'),
-      transfer_no: `TRF-${Date.now()}`,
-      quantity: totalQuantity,
-      creator: 'CurrentUser',
-      details: restockItems
+
+    const transferPayload = {
+      transfer_no: `FRP${Date.now()}`.slice(0, 12),
+      creator: creatorCode, // Use creatorCode from logged-in user
+      wh_from: selectedLocation, // Source warehouse from filter
+      location_from: getShelfCodeByCondition(selectedCondition, selectedLocation), // Source shelf from condition filter
+      wh_to: selectedWhCode2, // Destination warehouse from filter
+      location_to: getShelfCodeByCondition(selectedCondition, selectedWhCode2), // Destination shelf from condition filter
+      details: restockItems.map(item => ({
+        ...item,
+        wh_code: selectedLocation,
+        shelf_code: getShelfCodeByCondition(selectedCondition, selectedLocation),
+        wh_code_2: selectedWhCode2,
+        shelf_code_2: getShelfCodeByCondition(selectedCondition, selectedWhCode2),
+      })),
     };
-    navigate('/transfers', { state: { newTransfer: newTransfer } });
-    setRestockItems([]);
-    setQuantities({});
+
+    try {
+      const response = await fetch('http://localhost:3001/api/transfers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(transferPayload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create transfer in database.');
+      }
+
+      alert('สร้างใบโอนสำเร็จ!');
+      setRestockItems([]);
+      navigate('/transfers');
+
+    } catch (error) {
+      console.error('Error creating transfer:', error);
+      alert(`เกิดข้อผิดพลาดในการสร้างใบโอน: ${error}`);
+    }
   };
 
   const isGenerateBillButtonDisabled = selectedDate !== getTodayDate();
@@ -178,7 +237,7 @@ function RestockRequest() {
       <NavigationBar />
       <Container fluid className="mt-4">
         <Row className="mb-3 px-3">
-            <Col md={4}>
+            <Col md={3}>
               <Form.Group controlId="formDate">
                 <Form.Label>ເລືອກວັນທີ:</Form.Label>
                 <Form.Control
@@ -188,20 +247,33 @@ function RestockRequest() {
                 />
               </Form.Group>
             </Col>
-            <Col md={4}>
+            <Col md={3}>
               <Form.Group controlId="formLocation">
-                <Form.Label>ຕຳແໜ່ງ:</Form.Label>
+                <Form.Label>ຄັງຕົ້ນທາງ:</Form.Label>
                 <Form.Select
                   value={selectedLocation}
                   onChange={(e) => setSelectedLocation(e.target.value)}
                 >
-                  <option value="">ທັງໝົດ</option>
+                  <option value="">ເລືອກຄັງ</option>
                   <option value="1301">1301</option>
                   <option value="1302">1302</option>
                 </Form.Select>
               </Form.Group>
             </Col>
-            <Col md={4}>
+            <Col md={3}>
+              <Form.Group controlId="formWhCode2">
+                <Form.Label>ໜ້າຮ້ານ:</Form.Label>
+                <Form.Select
+                  value={selectedWhCode2}
+                  onChange={(e) => setSelectedWhCode2(e.target.value)}
+                >
+                  <option value="">ເລືອກຄັງ</option>
+                  <option value="1301">1301</option>
+                  <option value="1302">1302</option>
+                </Form.Select>
+              </Form.Group>
+            </Col>
+            <Col md={3}>
               <Form.Group controlId="formCondition">
                 <Form.Label>ສະພາບ:</Form.Label>
                 <Form.Select
@@ -209,9 +281,9 @@ function RestockRequest() {
                   onChange={(e) => setSelectedCondition(e.target.value)}
                 >
                   <option value="">ທັງໝົດ</option>
-                  <option value="ສະພາບດີ">ສະພາບດີ</option>
-                  <option value="ສະພາບດີຫຼາຍ">ສະພາບດີຫຼາຍ</option>
-                  <option value="ສະພາບໃຫມ່">ສະພາບໃຫມ່</option>
+                  <option value="สภาพดี">สภาพดี</option>
+                  <option value="สภาพดีมาก">สภาพดีมาก</option>
+                  <option value="สภาพใหม่">สภาพใหม่</option>
                 </Form.Select>
               </Form.Group>
             </Col>
@@ -252,11 +324,10 @@ function RestockRequest() {
                             value={quantities[row.item_code] || ''}
                             onChange={(e) => handleQuantityChange(row.item_code, e.target.value)}
                             style={{ width: '80px' }}
-                            disabled={isAddItemButtonDisabled}
                           />
                         </td>
                         <td>
-                          <Button variant="primary" onClick={() => handleAddItem(row)} disabled={isAddItemButtonDisabled}>
+                          <Button variant="primary" onClick={() => handleAddItem(row)}>
                             ເພີ່ມ
                           </Button>
                         </td>
@@ -275,7 +346,6 @@ function RestockRequest() {
               variant="success" 
               className="mb-3 w-100"
               onClick={handleGenerateBill}
-              disabled={isGenerateBillButtonDisabled}
             >
               ສ້າງບິນຂໍເບີກ
             </Button>
