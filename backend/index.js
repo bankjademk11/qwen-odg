@@ -112,19 +112,20 @@ app.post('/api/transfers', async (req, res) => {
     const transHeaderQuery = {
       text: `INSERT INTO ic_trans (trans_type, trans_flag, doc_date, doc_no, doc_ref, doc_ref_date, branch_code, project_code, sale_code, remark, doc_time, doc_format_code, wh_from, location_from, wh_to, location_to, creator_code, create_datetime, last_editor_code, lastedit_datetime) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`,
       values: [
-        3, 124, docDate, transfer_no, creator, docDate, '00', '', creator, `Web: ${transfer_no}`, docTime, 'FRP', wh_from, location_from, wh_to, location_to, creator, docDate, creator, docDate
+        3, 122, docDate, transfer_no, creator, docDate, '00', '', creator, `Web: ${transfer_no}`, docTime, 'FRP', wh_from, location_from, wh_to, location_to, creator, docDate, creator, docDate
       ],
     };
     await client.query(transHeaderQuery);
 
     for (const item of details) {
-      console.log(`Processing item ${item.item_code}: shelf_code=${item.shelf_code}, shelf_code_2=${item.shelf_code_2}`);
+      console.log('Looping through details - Processing item:', item);
       const transDetailQuery = {
         text: `INSERT INTO ic_trans_detail (trans_type, trans_flag, doc_date, doc_no, item_code, item_name, unit_code, qty, branch_code, wh_code, shelf_code, wh_code_2, shelf_code_2, stand_value, divide_value, doc_time, sale_code, create_datetime, last_editor_code, lastedit_datetime) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`,
-        values: [
-          3, 124, docDate, transfer_no, item.item_code, item.item_name, item.unit_code, item.quantity, '00', item.wh_code, item.shelf_code, item.wh_code_2, item.shelf_code_2, 1, 1, docTime, creator, docDate, creator, docDate
+        values: [ 
+          3, 122, docDate, transfer_no, item.item_code, item.item_name, item.unit_code, item.quantity, '00', item.wh_code, item.shelf_code, item.wh_code_2, item.shelf_code_2, 1, 1, docTime, creator, docDate, creator, docDate
         ],
       };
+      console.log('--- Debug: Query values ---', transDetailQuery.values); // <--- ผมเพิ่มบรรทัดนี้ให้ครับ
       await client.query(transDetailQuery);
     }
 
@@ -186,9 +187,12 @@ app.get('/api/transfers', async (req, res) => {
       SELECT
           t1.doc_no AS transfer_no, t1.doc_no AS id,
           COALESCE(to_char(t1.create_datetime, 'YYYY-MM-DD HH24:MI:SS'), to_char(t1.doc_date, 'YYYY-MM-DD') || ' ' || t1.doc_time) AS doc_date_time,
-          t1.creator_code AS creator,
+          COALESCE(u1.name_1, t1.creator_code) AS creator,
           (SELECT SUM(t2.qty) FROM ic_trans_detail t2 WHERE t2.doc_no = t1.doc_no) AS quantity
-      FROM ic_trans t1
+      FROM 
+          ic_trans t1
+      LEFT JOIN 
+          erp_user u1 ON t1.creator_code = u1.code
       ${whereClause}
       ORDER BY t1.create_datetime DESC;
     `;

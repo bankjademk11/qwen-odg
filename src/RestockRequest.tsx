@@ -78,6 +78,21 @@ function RestockRequest() {
     fetchWarehouses('http://localhost:3001/api/destination-warehouses', setDestinationWarehouses);
   }, []);
 
+  // DEBUG: Set default destination warehouse after the list has been loaded
+  useEffect(() => {
+    console.log("Checking for default destination warehouse...");
+    console.log("User WHT:", user.ic_wht);
+    console.log("Destination warehouses loaded:", destinationWarehouses);
+    if (user && user.ic_wht && destinationWarehouses.length > 0) {
+      const userWarehouseExists = destinationWarehouses.some(wh => wh.code === user.ic_wht);
+      console.log("Does user warehouse exist in list?", userWarehouseExists);
+      if (userWarehouseExists) {
+        console.log("Setting destination warehouse to:", user.ic_wht);
+        setDestinationWarehouse(user.ic_wht);
+      }
+    }
+  }, [destinationWarehouses, user]);
+
   // Fetch source locations when source warehouse changes
   useEffect(() => {
     if (sourceWarehouse) {
@@ -118,6 +133,20 @@ function RestockRequest() {
     }
   }, [destinationWarehouse]);
 
+  // DEBUG: Set default destination location after the list has been loaded
+  useEffect(() => {
+    console.log("Checking for default destination location...");
+    console.log("User Shelf:", user.ic_shelf);
+    console.log("Destination locations loaded:", destinationLocations);
+    if (user && user.ic_shelf && destinationLocations.length > 0) {
+      const userShelfExists = destinationLocations.some(loc => loc.code === user.ic_shelf);
+      console.log("Does user shelf exist in list?", userShelfExists);
+      if (userShelfExists) {
+        console.log("Setting destination location to:", user.ic_shelf);
+        setDestinationLocation(user.ic_shelf);
+      }
+    }
+  }, [destinationLocations, user]);
 
   useEffect(() => {
     localStorage.setItem(RESTOCK_ITEMS_STORAGE_KEY, JSON.stringify(restockItems));
