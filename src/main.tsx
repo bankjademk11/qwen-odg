@@ -7,6 +7,7 @@ import RestockRequest from './RestockRequest';
 import AnalysisPage from './AnalysisPage';
 import TransferPage from './TransferPage';
 import TransferDetailsPage from './TransferDetailsPage';
+import LoginPage from './LoginPage'; // Import LoginPage
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import './index.css';
@@ -21,6 +22,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <Route path="/analysis" element={<AnalysisPage />} />
         <Route path="/transfers" element={<TransferPage />} />
         <Route path="/transfers/:transferId" element={<TransferDetailsPage />} />
+        <Route path="/login" element={<LoginPage />} /> {/* Add route for LoginPage */}
       </Routes>
     </BrowserRouter>
   </React.StrictMode>

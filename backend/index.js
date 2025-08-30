@@ -106,6 +106,32 @@ app.get('/api/analysis-data', async (req, res) => {
 
 
 
+app.post('/api/login', async (req, res) => {
+  const { code, password } = req.body;
+
+  try {
+    const query = `SELECT code, name_1, password, ic_wht, ic_shelf FROM erp_user WHERE code = $1 AND password = $2`;
+    const result = await pool.query(query, [code, password]);
+
+    if (result.rows.length > 0) {
+      const user = result.rows[0];
+      // In a real application, you would generate a token (e.g., JWT) here
+      // and send it to the client for session management.
+      res.json({ success: true, message: 'Login successful', user: {
+        code: user.code,
+        name_1: user.name_1,
+        ic_wht: user.ic_wht,
+        ic_shelf: user.ic_shelf
+      }});
+    } else {
+      res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+  } catch (err) {
+    console.error('Error during login', err.stack);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Backend server listening at http://localhost:${port}`);
 });
