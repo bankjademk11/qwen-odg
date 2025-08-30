@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Navbar, Nav, Button } from 'react-bootstrap';
+import { Container, Navbar, Nav, Button, Dropdown } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -48,14 +48,16 @@ function NavigationBar() {
             </Nav.Link>
             {
               isLoggedIn ? (
-                <>
-                  <Navbar.Text className="ms-3 text-light">
+                <Dropdown as={Nav.Item} align="end">
+                  <Dropdown.Toggle as={Nav.Link} className="mx-2 px-3 py-2 rounded bg-light text-primary fw-bold">
                     <i className="bi bi-person-circle me-2"></i> {userName}
-                  </Navbar.Text>
-                  <Button variant="outline-light" className="ms-3" onClick={handleLogout}>
-                    Logout
-                  </Button>
-                </>
+                  </Dropdown.Toggle>
+                  <Dropdown.Menu>
+                    <Dropdown.Item onClick={handleLogout}>
+                      <i className="bi bi-box-arrow-right me-2"></i> Logout
+                    </Dropdown.Item>
+                  </Dropdown.Menu>
+                </Dropdown>
               ) : (
                 <Nav.Link as={Link} to="/login" className="ms-3 text-light">
                   <i className="bi bi-person-circle me-2"></i> Login

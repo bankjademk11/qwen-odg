@@ -142,8 +142,8 @@ const ProductList: React.FC = () => {
             </tbody>
           </Table>
         )}
-        {loading && offset > 0 && <p>ກຳລັງໂຫຼດຂໍ້ມູນເພີ່ມເຕີມ...</p>}
-        {!hasMore && data.length > 0 && <p>ບໍ່ມີຂໍ້ມູນເພີ່ມເຕີມ.</p>}
+        {loading && offset > 0 && <p>ກຳລັງໂຫຼດຂໍມູນເພີ່ມເຕີມ...</p>}
+        {!hasMore && data.length > 0 && <p>ບໍ່ມີຂໍມູນເພີ່ມເຕີມ.</p>}
       </Container>
     </div>
   );
