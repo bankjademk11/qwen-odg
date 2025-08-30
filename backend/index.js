@@ -16,7 +16,10 @@ app.use(cors());
 app.use(express.json());
 
 app.post('/api/login', async (req, res) => {
-  const { username, password } = req.body;
+  const { code, password } = req.body;
+
+  // Log incoming data for debugging
+  console.log('Received login attempt with:', { code, password });
 
   // !!! SECURITY WARNING: Storing and comparing plain text passwords is a major security risk.
   // Passwords should always be hashed (e.g., using bcrypt) and compared securely.
@@ -25,7 +28,7 @@ app.post('/api/login', async (req, res) => {
 
   try {
     const query = `SELECT code, name_1, ic_wht, ic_shelf FROM erp_user WHERE code = $1 AND password = $2`;
-    const result = await pool.query(query, [username, password]);
+    const result = await pool.query(query, [code, password]);
 
     if (result.rows.length > 0) {
       const user = result.rows[0];
@@ -199,13 +202,17 @@ app.get('/api/transfers', async (req, res) => {
 
 app.post('/api/login', async (req, res) => {
   const { code, password } = req.body;
+  console.log('Login attempt received:', { code, password }); // Debug log
 
   try {
     const query = `SELECT code, name_1, password, ic_wht, ic_shelf FROM erp_user WHERE code = $1 AND password = $2`;
+    console.log('Executing database query with:', [code, password]); // Debug log
     const result = await pool.query(query, [code, password]);
+    console.log('Database query result:', result.rows); // Debug log
 
     if (result.rows.length > 0) {
       const user = result.rows[0];
+      console.log('Login successful for user:', user.code); // Debug log
       // In a real application, you would generate a token (e.g., JWT) here
       // and send it to the client for session management.
       res.json({ success: true, message: 'Login successful', user: {
@@ -215,6 +222,7 @@ app.post('/api/login', async (req, res) => {
         ic_shelf: user.ic_shelf
       }});
     } else {
+      console.log('Login failed: Invalid credentials for code', code); // Debug log
       res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
   } catch (err) {
