@@ -22,9 +22,18 @@ function RestockRequest() {
   });
   const [quantities, setQuantities] = useState<{ [key: string]: string }>({});
   const [selectedDate, setSelectedDate] = useState<string>('');
-  const [selectedLocation, setSelectedLocation] = useState<string>(''); // wh_code (source)
-  const [selectedWhCode2, setSelectedWhCode2] = useState<string>(''); // wh_code_2 (destination)
-  const [selectedCondition, setSelectedCondition] = useState<string>('');
+  
+  // States for filters
+  const [sourceWarehouses, setSourceWarehouses] = useState<any[]>([]);
+  const [destinationWarehouses, setDestinationWarehouses] = useState<any[]>([]);
+  const [sourceLocations, setSourceLocations] = useState<any[]>([]);
+  const [destinationLocations, setDestinationLocations] = useState<any[]>([]);
+
+  const [sourceWarehouse, setSourceWarehouse] = useState<string>('');
+  const [sourceLocation, setSourceLocation] = useState<string>('');
+  const [destinationWarehouse, setDestinationWarehouse] = useState<string>('');
+  const [destinationLocation, setDestinationLocation] = useState<string>('');
+
   const [offset, setOffset] = useState<number>(0);
   const [hasMore, setHasMore] = useState<boolean>(true);
   const loadingMoreRef = useRef<boolean>(false);
@@ -32,9 +41,7 @@ function RestockRequest() {
   const navigate = useNavigate();
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const creatorCode = user.code || null; // Fallback to hardcoded if user not found
-  console.log('RestockRequest: User object from localStorage:', user);
-  console.log('RestockRequest: creatorCode being used:', creatorCode);
+  const creatorCode = user.code || null;
 
   const getTodayDate = () => {
     const today = new Date();
@@ -44,38 +51,89 @@ function RestockRequest() {
     return `${year}-${month}-${day}`;
   };
 
-  const getConditionFromShelfCode = (shelfCode: string) => {
-    if (shelfCode.endsWith('01')) return 'สภาพดี';
-    if (shelfCode.endsWith('02')) return 'สภาพดีมาก';
-    if (shelfCode.endsWith('03')) return 'สภาพใหม่';
-    return 'สภาพดี'; // Default if no match
-  };
-
+  // Set initial date
   useEffect(() => {
     setSelectedDate(getTodayDate());
-    // Set default values for new location filters
-    setSelectedLocation(user.ic_wht || '1302'); // Default source warehouse from user or fallback
-    setSelectedWhCode2(user.ic_wht || '1301'); // Default destination warehouse from user or fallback
-    setSelectedCondition(getConditionFromShelfCode(user.ic_shelf || '')); // Set default condition from user's ic_shelf
   }, []);
+
+  // Fetch source and destination warehouses on component mount
+  useEffect(() => {
+    const fetchWarehouses = async (apiUrl: string, setter: React.Dispatch<React.SetStateAction<any[]>>) => {
+      try {
+        const response = await fetch(apiUrl);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const data = await response.json();
+        if (Array.isArray(data)) {
+          setter(data);
+        } else {
+          console.error("Fetched data is not an array:", data);
+          setter([]);
+        }
+      } catch (error) {
+        console.error("Failed to fetch warehouses", error);
+        setter([]);
+      }
+    };
+    fetchWarehouses('http://localhost:3001/api/warehouses', setSourceWarehouses);
+    fetchWarehouses('http://localhost:3001/api/destination-warehouses', setDestinationWarehouses);
+  }, []);
+
+  // Fetch source locations when source warehouse changes
+  useEffect(() => {
+    if (sourceWarehouse) {
+      const fetchLocations = async () => {
+        setSourceLocations([]);
+        try {
+          const response = await fetch(`http://localhost:3001/api/locations/${sourceWarehouse}`);
+          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+          const data = await response.json();
+          setSourceLocations(data);
+        } catch (error) {
+          console.error(`Failed to fetch locations for warehouse ${sourceWarehouse}`, error);
+        }
+      };
+      fetchLocations();
+    } else {
+      setSourceLocations([]);
+    }
+  }, [sourceWarehouse]);
+
+  // Fetch destination locations when destination warehouse changes
+  useEffect(() => {
+    if (destinationWarehouse) {
+      const fetchLocations = async () => {
+        setDestinationLocations([]);
+        try {
+          const response = await fetch(`http://localhost:3001/api/destination-locations/${destinationWarehouse}`);
+          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+          const data = await response.json();
+          setDestinationLocations(data);
+        } catch (error) {
+          console.error(`Failed to fetch destination locations for warehouse ${destinationWarehouse}`, error);
+        }
+      };
+      fetchLocations();
+    } else {
+      setDestinationLocations([]);
+    }
+  }, [destinationWarehouse]);
+
 
   useEffect(() => {
     localStorage.setItem(RESTOCK_ITEMS_STORAGE_KEY, JSON.stringify(restockItems));
   }, [restockItems]);
 
-  const fetchData = async (currentOffset: number, date: string, location: string) => {
-    if (loadingMoreRef.current) return;
+  const fetchData = async (currentOffset: number, date: string, whCode: string) => {
+    if (loadingMoreRef.current || !whCode) return;
     loadingMoreRef.current = true;
     setLoading(true);
     setError(null);
 
     try {
       const dateParam = date ? `&doc_date=${date}` : '';
-      const locationParam = location ? `&wh_code=${location}` : '';
+      const locationParam = whCode ? `&wh_code=${whCode}` : '';
       const response = await fetch(`http://localhost:3001/api/analysis-data?limit=${ITEMS_PER_LOAD}&offset=${currentOffset}${dateParam}${locationParam}`);
-      if (!response.ok) {
-        throw new Error(`HTTP http! status: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const result = await response.json();
       const sortedData = result.sort((a: any, b: any) => a.balance_qty - b.qty);
 
@@ -102,11 +160,15 @@ function RestockRequest() {
   };
 
   useEffect(() => {
+    if (!sourceWarehouse) {
+      setData([]);
+      return;
+    }
     setData([]);
     setOffset(0);
     setHasMore(true);
-    fetchData(0, selectedDate, selectedLocation);
-  }, [selectedDate, selectedLocation]);
+    fetchData(0, selectedDate, sourceWarehouse);
+  }, [selectedDate, sourceWarehouse]);
 
   useEffect(() => {
     const container = scrollableContainerRef.current;
@@ -136,7 +198,7 @@ function RestockRequest() {
 
   useEffect(() => {
     if (offset > 0) {
-      fetchData(offset, selectedDate, selectedLocation);
+      fetchData(offset, selectedDate, sourceWarehouse);
     }
   }, [offset]);
 
@@ -165,24 +227,6 @@ function RestockRequest() {
     setRestockItems(prevItems => prevItems.filter(item => item.item_code !== itemCode));
   };
 
-  const getShelfCodeByCondition = (condition: string, warehouseCode: string) => {
-    let suffix = '';
-    switch (condition) {
-      case 'สภาพดี':
-        suffix = '01';
-        break;
-      case 'สภาพดีมาก':
-        suffix = '02';
-        break;
-      case 'สภาพใหม่':
-        suffix = '03';
-        break;
-      default:
-        return ''; // For 'ทั้งหมด' or any other unmapped value
-    }
-    return warehouseCode ? `${warehouseCode}${suffix}` : '';
-  };
-
   const handleGenerateBill = async () => {
     if (restockItems.length === 0) {
       alert('ກະລຸນາເລືອກສິນຄ້າທີ່ຈະເບີກກ່ອນ.');
@@ -191,17 +235,17 @@ function RestockRequest() {
 
     const transferPayload = {
       transfer_no: `FRP${Date.now()}`.slice(0, 12),
-      creator: creatorCode, // Use creatorCode from logged-in user
-      wh_from: selectedLocation, // Source warehouse from filter
-      location_from: getShelfCodeByCondition(selectedCondition, selectedLocation), // Source shelf from condition filter
-      wh_to: selectedWhCode2, // Destination warehouse from filter
-      location_to: getShelfCodeByCondition(selectedCondition, selectedWhCode2), // Destination shelf from condition filter
+      creator: creatorCode,
+      wh_from: sourceWarehouse,
+      location_from: sourceLocation,
+      wh_to: destinationWarehouse,
+      location_to: destinationLocation,
       details: restockItems.map(item => ({
         ...item,
-        wh_code: selectedLocation,
-        shelf_code: getShelfCodeByCondition(selectedCondition, selectedLocation),
-        wh_code_2: selectedWhCode2,
-        shelf_code_2: getShelfCodeByCondition(selectedCondition, selectedWhCode2),
+        wh_code: sourceWarehouse,
+        shelf_code: sourceLocation,
+        wh_code_2: destinationWarehouse,
+        shelf_code_2: destinationLocation,
       })),
     };
 
@@ -219,18 +263,15 @@ function RestockRequest() {
         throw new Error(errorData.error || 'Failed to create transfer in database.');
       }
 
-      alert('สร้างใบโอนสำเร็จ!');
+      alert('ສ້າງໃບໂອນສຳເລັດ!');
       setRestockItems([]);
       navigate('/transfers');
 
     } catch (error) {
       console.error('Error creating transfer:', error);
-      alert(`เกิดข้อผิดพลาดในการสร้างใบโอน: ${error}`);
+      alert(`ເກີດຂໍ້ຜິດພາດໃນການສ້າງໃບໂອນ: ${error}`);
     }
   };
-
-  const isGenerateBillButtonDisabled = selectedDate !== getTodayDate();
-  const isAddItemButtonDisabled = selectedDate !== getTodayDate();
 
   return (
     <div>
@@ -247,43 +288,61 @@ function RestockRequest() {
                 />
               </Form.Group>
             </Col>
-            <Col md={3}>
-              <Form.Group controlId="formLocation">
+            <Col md={2}>
+              <Form.Group controlId="sourceWarehouse">
                 <Form.Label>ຄັງຕົ້ນທາງ:</Form.Label>
                 <Form.Select
-                  value={selectedLocation}
-                  onChange={(e) => setSelectedLocation(e.target.value)}
+                  value={sourceWarehouse}
+                  onChange={(e) => setSourceWarehouse(e.target.value)}
                 >
-                  <option value="">ເລືອກຄັງ</option>
-                  <option value="1301">1301</option>
-                  <option value="1302">1302</option>
+                  <option value="">ເລືອກຄັງ...</option>
+                  {sourceWarehouses.map(wh => (
+                    <option key={`swh-${wh.code}`} value={wh.code}>{wh.name}</option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+            </Col>
+            <Col md={2}>
+              <Form.Group controlId="sourceLocation">
+                <Form.Label>ບ່ອນເກັບຕົ້ນທາງ:</Form.Label>
+                <Form.Select
+                  value={sourceLocation}
+                  onChange={(e) => setSourceLocation(e.target.value)}
+                  disabled={!sourceWarehouse}
+                >
+                  <option value="">ເລືອກບ່ອນເກັບ...</option>
+                  {sourceLocations.map(loc => (
+                    <option key={`sloc-${loc.code}`} value={loc.code}>{loc.name}</option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+            </Col>
+            <Col md={2}>
+              <Form.Group controlId="destinationWarehouse">
+                <Form.Label>ຄັງປາຍທາງ:</Form.Label>
+                <Form.Select
+                  value={destinationWarehouse}
+                  onChange={(e) => setDestinationWarehouse(e.target.value)}
+                >
+                  <option value="">ເລືອກຄັງ...</option>
+                  {destinationWarehouses.map(wh => (
+                    <option key={`dwh-${wh.code}`} value={wh.code}>{wh.name}</option>
+                  ))}
                 </Form.Select>
               </Form.Group>
             </Col>
             <Col md={3}>
-              <Form.Group controlId="formWhCode2">
-                <Form.Label>ໜ້າຮ້ານ:</Form.Label>
+              <Form.Group controlId="destinationLocation">
+                <Form.Label>ບ່ອນເກັບປາຍທາງ:</Form.Label>
                 <Form.Select
-                  value={selectedWhCode2}
-                  onChange={(e) => setSelectedWhCode2(e.target.value)}
+                  value={destinationLocation}
+                  onChange={(e) => setDestinationLocation(e.target.value)}
+                  disabled={!destinationWarehouse}
                 >
-                  <option value="">ເລືອກຄັງ</option>
-                  <option value="1301">1301</option>
-                  <option value="1302">1302</option>
-                </Form.Select>
-              </Form.Group>
-            </Col>
-            <Col md={3}>
-              <Form.Group controlId="formCondition">
-                <Form.Label>ສະພາບ:</Form.Label>
-                <Form.Select
-                  value={selectedCondition}
-                  onChange={(e) => setSelectedCondition(e.target.value)}
-                >
-                  <option value="">ທັງໝົດ</option>
-                  <option value="สภาพดี">สภาพดี</option>
-                  <option value="สภาพดีมาก">สภาพดีมาก</option>
-                  <option value="สภาพใหม่">สภาพใหม่</option>
+                  <option value="">ເລືອກບ່ອນເກັບ...</option>
+                  {destinationLocations.map(loc => (
+                    <option key={`dloc-${loc.code}`} value={loc.code}>{loc.name}</option>
+                  ))}
                 </Form.Select>
               </Form.Group>
             </Col>

@@ -231,6 +231,76 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+// API endpoint to get warehouses
+app.get('/api/warehouses', async (req, res) => {
+  try {
+    const query = `
+      SELECT DISTINCT wh_from as code, wh_from as name 
+      FROM ic_trans 
+      WHERE wh_from IN ('1301', '1302') 
+      ORDER BY wh_from
+    `;
+    const result = await pool.query(query);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching warehouses', err.stack);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// API endpoint to get locations (shelves) for a specific warehouse
+app.get('/api/locations/:warehouse', async (req, res) => {
+  const { warehouse } = req.params;
+  try {
+    const query = `
+      SELECT DISTINCT shelf_code as code, shelf_code as name 
+      FROM ic_trans_detail 
+      WHERE wh_code = $1 AND shelf_code IS NOT NULL AND shelf_code <> ''
+      ORDER BY shelf_code
+    `;
+    const result = await pool.query(query, [warehouse]);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(`Error fetching locations for warehouse ${warehouse}`, err.stack);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// API endpoint to get destination warehouses
+app.get('/api/destination-warehouses', async (req, res) => {
+  try {
+    const query = `
+      (SELECT DISTINCT wh_to as code, wh_to as name FROM ic_trans WHERE wh_to IS NOT NULL AND wh_to <> '')
+      UNION
+      (SELECT DISTINCT wh_code_2 as code, wh_code_2 as name FROM ic_trans_detail WHERE wh_code_2 IS NOT NULL AND wh_code_2 <> '')
+      ORDER BY code;
+    `;
+    const result = await pool.query(query);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching destination warehouses', err.stack);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// API endpoint to get destination locations for a specific warehouse
+app.get('/api/destination-locations/:warehouse', async (req, res) => {
+  const { warehouse } = req.params;
+  try {
+    const query = `
+      (SELECT DISTINCT location_to as code, location_to as name FROM ic_trans WHERE wh_to = $1 AND location_to IS NOT NULL AND location_to <> '')
+      UNION
+      (SELECT DISTINCT shelf_code_2 as code, shelf_code_2 as name FROM ic_trans_detail WHERE wh_code_2 = $1 AND shelf_code_2 IS NOT NULL AND shelf_code_2 <> '')
+      ORDER BY code;
+    `;
+    const result = await pool.query(query, [warehouse]);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(`Error fetching destination locations for warehouse ${warehouse}`, err.stack);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Backend server listening at http://localhost:${port}`);
 });
