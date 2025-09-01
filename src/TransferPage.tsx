@@ -31,7 +31,7 @@ const TransferPage: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`http://localhost:3001/api/transfers?date=${selectedDate}`);
+        const response = await fetch(`http://localhost:8004/api/transfers?date=${selectedDate}`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -73,10 +73,10 @@ const TransferPage: React.FC = () => {
         <Row className="mb-3">
           <Col md={4}>
             <Form.Group controlId="filterTransferNumber">
-              <Form.Label>ເລກທີ່ຂໍ້ໂອນ:</Form.Label>
+              <Form.Label>ເລກທີ່ຂໍໂອນ:</Form.Label>
               <Form.Control
                 type="text"
-                placeholder="ຄົ້ນຫາເລກທີ່ຂໍ້ໂອນ"
+                placeholder="ຄົ້ນຫາເລກທີ່ຂໍໂອນ"
                 value={transferNumber}
                 onChange={(e) => setTransferNumber(e.target.value)}
               />
@@ -94,12 +94,12 @@ const TransferPage: React.FC = () => {
           </Col>
           <Col md={4} className="d-flex align-items-end justify-content-end">
             <Button variant="success" onClick={handleCreateTransfer}>
-              ສ້າງຂໍ້ໂອນ
+              ສ້າງຂໍ
             </Button>
           </Col>
         </Row>
 
-        <h2>ລາຍການຂໍ້ໂອນ</h2>
+        <h2>ລາຍການຂໍ</h2>
         {loading ? (
           <div className="text-center">
             <Spinner animation="border" />
@@ -111,17 +111,18 @@ const TransferPage: React.FC = () => {
           <Table striped bordered hover responsive>
             <thead>
               <tr>
-                <th>ວັນທີເວລາຂໍ້ໂອນ</th>
-                <th>ເລກທີ່ຂໍ້ໂອນ</th>
-                <th>ຈຳນວນຂໍ້ໂອນ</th>
+                <th>ວັນທີເວລາຂໍ</th>
+                <th>ເລກທີ່ຂໍ</th>
+                <th>ຈຳນວນຂໍ</th>
                 <th>ຜູ້ສ້າງ</th>
+                <th>ສະຖານະ</th>
                 <th>ຈັດການ</th>
               </tr>
             </thead>
             <tbody>
               {filteredTransfers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center">ບໍ່ມີລາຍການຂໍ້ໂອນໃນວັນທີ່ເລືອກ</td>
+                  <td colSpan={6} className="text-center">ບໍ່ມີລາຍການຂໍໃນວັນທີ່ເລືອກ</td>
                 </tr>
               ) : (
                 filteredTransfers.map((transfer) => (
@@ -130,6 +131,19 @@ const TransferPage: React.FC = () => {
                     <td>{transfer.transfer_no}</td>
                     <td>{Math.round(transfer.quantity || 0)}</td>
                     <td>{transfer.creator}</td>
+                    <td>
+                      <span 
+                        className={`badge ${
+                          transfer.status_name === 'ໂອນສຳເລັດ' 
+                            ? 'bg-success' 
+                            : transfer.status_name === 'ລໍຖ້າໂອນ' 
+                            ? 'bg-warning text-dark' 
+                            : 'bg-secondary'
+                        }`}
+                      >
+                        {transfer.status_name || 'ບໍ່ມີຂໍ້ມູນ'}
+                      </span>
+                    </td>
                     <td>
                       <Button variant="info" size="sm" className="me-2" onClick={() => handleView(transfer)}>
                         ເບິ່ງ

@@ -74,9 +74,19 @@ function RestockRequest() {
         setter([]);
       }
     };
-    fetchWarehouses('http://localhost:3001/api/warehouses', setSourceWarehouses);
-    fetchWarehouses('http://localhost:3001/api/destination-warehouses', setDestinationWarehouses);
+    fetchWarehouses('http://localhost:8004/api/warehouses', setSourceWarehouses);
+    fetchWarehouses('http://localhost:8004/api/destination-warehouses', setDestinationWarehouses);
   }, []);
+
+  // Auto-select source warehouse 1301 when warehouses are loaded
+  useEffect(() => {
+    if (sourceWarehouses.length > 0 && !sourceWarehouse) {
+      const warehouse1301 = sourceWarehouses.find(wh => wh.code === '1301');
+      if (warehouse1301) {
+        setSourceWarehouse('1301');
+      }
+    }
+  }, [sourceWarehouses, sourceWarehouse]);
 
   // DEBUG: Set default destination warehouse after the list has been loaded
   useEffect(() => {
@@ -99,7 +109,7 @@ function RestockRequest() {
       const fetchLocations = async () => {
         setSourceLocations([]);
         try {
-          const response = await fetch(`http://localhost:3001/api/locations/${sourceWarehouse}`);
+          const response = await fetch(`http://localhost:8004/api/locations/${sourceWarehouse}`);
           if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
           const data = await response.json();
           setSourceLocations(data);
@@ -119,7 +129,7 @@ function RestockRequest() {
       const fetchLocations = async () => {
         setDestinationLocations([]);
         try {
-          const response = await fetch(`http://localhost:3001/api/destination-locations/${destinationWarehouse}`);
+          const response = await fetch(`http://localhost:8004/api/destination-locations/${destinationWarehouse}`);
           if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
           const data = await response.json();
           setDestinationLocations(data);
@@ -161,7 +171,7 @@ function RestockRequest() {
     try {
       const dateParam = date ? `&doc_date=${date}` : '';
       const locationParam = whCode ? `&wh_code=${whCode}` : '';
-      const response = await fetch(`http://localhost:3001/api/analysis-data?limit=${ITEMS_PER_LOAD}&offset=${currentOffset}${dateParam}${locationParam}`);
+      const response = await fetch(`http://localhost:8004/api/analysis-data?limit=${ITEMS_PER_LOAD}&offset=${currentOffset}${dateParam}${locationParam}`);
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const result = await response.json();
       const sortedData = result.sort((a: any, b: any) => a.balance_qty - b.qty);
@@ -262,24 +272,32 @@ function RestockRequest() {
       return;
     }
 
-    const transferPayload = {
-      transfer_no: `FRP${Date.now()}`.slice(0, 12),
-      creator: creatorCode,
-      wh_from: sourceWarehouse,
-      location_from: sourceLocation,
-      wh_to: destinationWarehouse,
-      location_to: destinationLocation,
-      details: restockItems.map(item => ({
-        ...item,
-        wh_code: sourceWarehouse,
-        shelf_code: sourceLocation,
-        wh_code_2: destinationWarehouse,
-        shelf_code_2: destinationLocation,
-      })),
-    };
-
     try {
-      const response = await fetch('http://localhost:3001/api/transfers', {
+      // Generate transfer number from backend
+      const transferNoResponse = await fetch('http://localhost:8004/api/generate-transfer-no');
+      if (!transferNoResponse.ok) {
+        throw new Error('Failed to generate transfer number');
+      }
+      const transferNoData = await transferNoResponse.json();
+      const transferNo = transferNoData.transfer_no;
+
+      const transferPayload = {
+        transfer_no: transferNo,
+        creator: creatorCode,
+        wh_from: sourceWarehouse,
+        location_from: sourceLocation,
+        wh_to: destinationWarehouse,
+        location_to: destinationLocation,
+        details: restockItems.map(item => ({
+          ...item,
+          wh_code: sourceWarehouse,
+          shelf_code: sourceLocation,
+          wh_code_2: destinationWarehouse,
+          shelf_code_2: destinationLocation,
+        })),
+      };
+
+      const response = await fetch('http://localhost:8004/api/transfers', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -378,7 +396,7 @@ function RestockRequest() {
         </Row>
         <Row>
           <Col md={8}>
-            <h2>ຂໍເບີກ</h2>
+            <h2>ຂໍໂອນເຄື່ອງ</h2>
             <div ref={scrollableContainerRef} style={{ maxHeight: '70vh', overflowY: 'auto' }}>
               {data.length === 0 && !loading ? (
                 <p>ບໍ່ພົບຂໍ້ມູນສິນຄ້າ.</p>
@@ -389,8 +407,8 @@ function RestockRequest() {
                       <th>ລະຫັດສິນຄ້າ</th>
                       <th>ຊື່ສິນຄ້າ</th>
                       <th>ຈຳນວນທີ່ເຫລືອມື້ກ່ອນ</th>
-                      <th>ໜ້າຮ້ານ</th>
-                      <th>ຫຼັງຮ້ານ</th>
+                      <th>ຄົງເຫຼືອ</th>
+                      <th>ສາງຕົ້ນທາງ</th>
                       <th>ຂາຍໄປແລ້ວ</th>
                       <th>ຈຳນວນທີ່ຈະເບີກ</th>
                       <th>ເພີ່ມ</th>
@@ -429,16 +447,16 @@ function RestockRequest() {
             </div>
           </Col>
           <Col md={4}>
-            <h2>ບິນຂໍເບີກສິນຄ້າ</h2>
+            <h2>ບິນຂໍໂອນສິນຄ້າ</h2>
             <Button 
               variant="success" 
               className="mb-3 w-100"
               onClick={handleGenerateBill}
             >
-              ສ້າງບິນຂໍເບີກ
+              ສ້າງບິນຂໍໂອນ
             </Button>
             {restockItems.length === 0 ? (
-              <p>ຍັງບໍ່ມີສິນຄ້າໃນບິນຂໍເບີກ.</p>
+              <p>ຍັງບໍ່ມີສິນຄ້າໃນບິນຂໍໂອນ.</p>
             ) : (
               <Table striped bordered hover responsive>
                 <thead>

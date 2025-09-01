@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Container, Table, Form } from 'react-bootstrap';
+import { Container, Table, Form, Row, Col } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import NavigationBar from './NavigationBar';
 
@@ -13,8 +13,20 @@ const ProductList: React.FC = () => {
   const [offset, setOffset] = useState<number>(0);
   const [hasMore, setHasMore] = useState<boolean>(true);
   const loadingMoreRef = useRef<boolean>(false);
+  
+  // Warehouse filter states
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [selectedWarehouse, setSelectedWarehouse] = useState<string>('');
 
-  const fetchData = async (currentOffset: number, date: string) => {
+  const getTodayDate = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const fetchData = async (currentOffset: number, date: string, whCode: string = '') => {
     if (loadingMoreRef.current) return; // Prevent multiple simultaneous loads
     loadingMoreRef.current = true;
     setLoading(true);
@@ -22,7 +34,8 @@ const ProductList: React.FC = () => {
 
     try {
       const dateParam = date ? `&doc_date=${date}` : '';
-      const response = await fetch(`http://localhost:3001/api/analysis-data?limit=${ITEMS_PER_LOAD}&offset=${currentOffset}${dateParam}`);
+      const warehouseParam = whCode ? `&wh_code=${whCode}` : '';
+      const response = await fetch(`http://localhost:8004/api/analysis-data?limit=${ITEMS_PER_LOAD}&offset=${currentOffset}${dateParam}${warehouseParam}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -44,12 +57,48 @@ const ProductList: React.FC = () => {
     }
   };
 
+  // Set initial date to today
   useEffect(() => {
-    setData([]); // Clear data when date changes
+    setSelectedDate(getTodayDate());
+  }, []);
+
+  // Fetch warehouses on component mount
+  useEffect(() => {
+    const fetchWarehouses = async () => {
+      try {
+        const response = await fetch('http://localhost:8004/api/warehouses');
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const data = await response.json();
+        if (Array.isArray(data)) {
+          setWarehouses(data);
+        } else {
+          console.error("Fetched warehouse data is not an array:", data);
+          setWarehouses([]);
+        }
+      } catch (error) {
+        console.error("Failed to fetch warehouses", error);
+        setWarehouses([]);
+      }
+    };
+    fetchWarehouses();
+  }, []);
+
+  // Auto-select warehouse 1301 when warehouses are loaded
+  useEffect(() => {
+    if (warehouses.length > 0 && !selectedWarehouse) {
+      const warehouse1301 = warehouses.find(wh => wh.code === '1301');
+      if (warehouse1301) {
+        setSelectedWarehouse('1301');
+      }
+    }
+  }, [warehouses, selectedWarehouse]);
+
+  useEffect(() => {
+    setData([]); // Clear data when date or warehouse changes
     setOffset(0);
     setHasMore(true);
-    fetchData(0, selectedDate);
-  }, [selectedDate]);
+    fetchData(0, selectedDate, selectedWarehouse);
+  }, [selectedDate, selectedWarehouse]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -68,7 +117,7 @@ const ProductList: React.FC = () => {
 
   useEffect(() => {
     if (offset > 0) {
-      fetchData(offset, selectedDate);
+      fetchData(offset, selectedDate, selectedWarehouse);
     }
   }, [offset]);
 
@@ -91,7 +140,7 @@ const ProductList: React.FC = () => {
         <Container className="mt-4">
           <h2>Product List (Error)</h2>
           <p>Error: {error}</p>
-          <p>Please ensure your backend server is running at http://localhost:3001.</p>
+          <p>Please ensure your backend server is running at http://localhost:8004.</p>
         </Container>
       </div>
     );
@@ -102,14 +151,32 @@ const ProductList: React.FC = () => {
       <NavigationBar />
       <Container className="mt-4">
         <h2>ການເຄື່ອນໄຫວສິນຄ້າ</h2>
-        <Form.Group controlId="formDate" className="mb-3">
-          <Form.Label>ເລືອກວັນທີ:</Form.Label>
-          <Form.Control
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-          />
-        </Form.Group>
+        <Row className="mb-3">
+          <Col md={6}>
+            <Form.Group controlId="formDate" className="mb-3">
+              <Form.Label>ເລືອກວັນທີ:</Form.Label>
+              <Form.Control
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+              />
+            </Form.Group>
+          </Col>
+          <Col md={6}>
+            <Form.Group controlId="warehouseFilter" className="mb-3">
+              <Form.Label>ຄັງສິນຄ້າ:</Form.Label>
+              <Form.Select
+                value={selectedWarehouse}
+                onChange={(e) => setSelectedWarehouse(e.target.value)}
+              >
+                <option value="">ທັງຫມົດ</option>
+                {warehouses.map(wh => (
+                  <option key={`wh-${wh.code}`} value={wh.code}>{wh.name}</option>
+                ))}
+              </Form.Select>
+            </Form.Group>
+          </Col>
+        </Row>
         {data.length === 0 && !loading ? (
           <p>No data found for analysis.</p>
         ) : (
@@ -122,8 +189,8 @@ const ProductList: React.FC = () => {
                 <th>ປະເພດສິນຄ້າ</th>
                 <th>ຈຳນວນທີ່ເຫລືອມື້ກ່ອນ</th>
                 <th>ຂາຍໄປແລ້ວ</th>
-                <th>ໜ້າຮ້ານ</th>
-                <th>ຫຼັງຮ້ານ</th>
+                <th>ຍັງເຫຼືອ</th>
+                <th>ເຕີມໄດ້</th>
               </tr>
             </thead>
             <tbody>
