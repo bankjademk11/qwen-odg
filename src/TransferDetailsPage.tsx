@@ -12,6 +12,8 @@ const TransferDetailsPage: React.FC = () => {
   const { transferId } = useParams<{ transferId: string }>();
 
   useEffect(() => {
+    console.log('Transfer ID from URL params:', transferId);
+    
     const fetchTransferDetails = async () => {
       if (!transferId) return;
       setLoading(true);
@@ -22,8 +24,10 @@ const TransferDetailsPage: React.FC = () => {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
+        console.log('Transfer data received:', data);
         setTransfer(data);
       } catch (e: any) {
+        console.error('Error fetching transfer details:', e);
         setError(e.message);
       } finally {
         setLoading(false);
@@ -77,12 +81,12 @@ const TransferDetailsPage: React.FC = () => {
     <div>
       <NavigationBar />
       <Container className="mt-4">
-        <h2>ລາຍລະອຽດຂໍໂອນ: {transfer.transfer_no}</h2>
+        <h2>ລາຍລະອຽດຂໍໂອນ: {transfer.transfer_no || transfer.doc_no || transfer.id || 'ບໍ່ມີຂໍ້ມູນ'}</h2>
         <Card className="mb-4">
           <Card.Body>
             <Row>
               <Col md={6}>
-                <strong>ເລກທີ່ຂໍໂອນ:</strong> {transfer.transfer_no || 'ບໍ່ມີຂໍ້ມູນ'}
+                <strong>ເລກທີ່ຂໍໂອນ:</strong> {transfer.transfer_no || transfer.doc_no || transfer.id || 'ບໍ່ມີຂໍ້ມູນ'}
               </Col>
               <Col md={6}>
                 <strong>ວັນທີເວລາ:</strong> {transfer.doc_date_time || transfer.doc_date_time_formatted || 'ບໍ່ມີຂໍ້ມູນ'}
@@ -94,10 +98,10 @@ const TransferDetailsPage: React.FC = () => {
                 <strong>ຈຳນວນທັງໝົດ:</strong> {Math.round(transfer.quantity || 0)} ຊິ້ນ
               </Col>
               <Col md={6}>
-                <strong>ຕົ້ນທາງ:</strong> {transfer.wh_from} - {transfer.location_from}
+                <strong>ຕົ້ນທາງ:</strong> {transfer.wh_from_name || transfer.wh_from || 'ບໍ່ມີຂໍ້ມູນ'} - {transfer.location_from_name || transfer.location_from || 'ບໍ່ມີຂໍ້ມູນ'}
               </Col>
               <Col md={6}>
-                <strong>ປາຍທາງ:</strong> {transfer.wh_to} - {transfer.location_to}
+                <strong>ປາຍທາງ:</strong> {transfer.wh_to_name || transfer.wh_to || 'ບໍ່ມີຂໍ້ມູນ'} - {transfer.location_to_name || transfer.location_to || 'ບໍ່ມີຂໍ້ມູນ'}
               </Col>
             </Row>
           </Card.Body>

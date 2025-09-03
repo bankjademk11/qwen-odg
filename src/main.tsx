@@ -7,6 +7,7 @@ import RestockRequest from './RestockRequest';
 import AnalysisPage from './AnalysisPage';
 import TransferPage from './TransferPage';
 import TransferDetailsPage from './TransferDetailsPage';
+import TransferPrintPage from './TransferPrintPage'; // Import the new page
 import LoginPage from './LoginPage';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
@@ -71,6 +72,15 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           element={
             <ProtectedRoute>
               <TransferDetailsPage />
+            </ProtectedRoute>
+          }
+        />
+        {/* Add the new print route */}
+        <Route
+          path="/transfers/:transferId/print"
+          element={
+            <ProtectedRoute>
+              <TransferPrintPage />
             </ProtectedRoute>
           }
         />

@@ -475,9 +475,9 @@ function RestockRequest() {
                       </td>
                       <td>{item.quantity}</td>
                       <td>
-                        <Button variant="danger" size="sm" onClick={() => handleRemoveItem(item.item_code)}>
+                        {<Button variant="danger" size="sm" onClick={() => handleRemoveItem(item.item_code)}>
                           ລຶບ
-                        </Button>
+                        </Button> }
                       </td>
                     </tr>
                   ))}

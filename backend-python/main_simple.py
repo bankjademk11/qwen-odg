@@ -25,7 +25,7 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5175", "http://localhost:5176", "http://localhost:3000"],  # Frontend URLs
+    allow_origins=["http://localhost:5173", "http://localhost:5175", "http://localhost:5176", "http://localhost:3000"],  # Frontend URLs
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -378,13 +378,21 @@ async def get_transfer_details(transfer_id: str):
         connection = connection_pool.getconn()
         cursor = connection.cursor()
         
-        # Get header
+        # Get header with warehouse and location names
         header_query = """
         SELECT t1.*, 
                to_char(t1.create_datetime, 'YYYY-MM-DD HH24:MI:SS') AS doc_date_time_formatted,
-               COALESCE(u1.name_1, t1.creator_code) AS creator_name
+               COALESCE(u1.name_1, t1.creator_code) AS creator_name,
+               wh_from.name_1 AS wh_from_name,
+               wh_to.name_1 AS wh_to_name,
+               loc_from.name_1 AS location_from_name,
+               loc_to.name_1 AS location_to_name
         FROM ic_trans t1
         LEFT JOIN erp_user u1 ON t1.creator_code = u1.code
+        LEFT JOIN ic_warehouse wh_from ON t1.wh_from = wh_from.code
+        LEFT JOIN ic_warehouse wh_to ON t1.wh_to = wh_to.code
+        LEFT JOIN ic_shelf loc_from ON t1.location_from = loc_from.code AND t1.wh_from = loc_from.whcode
+        LEFT JOIN ic_shelf loc_to ON t1.location_to = loc_to.code AND t1.wh_to = loc_to.whcode
         WHERE t1.doc_no = %s
         """
         cursor.execute(header_query, (transfer_id,))
@@ -441,9 +449,16 @@ async def get_transfers(date: Optional[str] = None):
                    CASE WHEN a.doc_success = 0 THEN 'ລໍຖ້າໂອນ' 
                         WHEN a.doc_success = 1 THEN 'ໂອນສຳເລັດ' 
                         ELSE '' END AS status_name,
-                   to_char(a.create_datetime, 'YYYY-MM-DD HH24:MI:SS') as doc_date_time
+                   to_char(a.create_datetime, 'YYYY-MM-DD HH24:MI:SS') as doc_date_time,
+                   wh_from.name_1 as wh_from_name, wh_to.name_1 as wh_to_name,
+                   loc_from.name_1 as location_from_name, loc_to.name_1 as location_to_name,
+                   a.wh_from, a.wh_to, a.location_from, a.location_to
             FROM ic_trans a
             LEFT JOIN erp_user u ON u.code = a.creator_code
+            LEFT JOIN ic_warehouse wh_from ON a.wh_from = wh_from.code
+            LEFT JOIN ic_warehouse wh_to ON a.wh_to = wh_to.code
+            LEFT JOIN ic_shelf loc_from ON a.location_from = loc_from.code AND a.wh_from = loc_from.whcode
+            LEFT JOIN ic_shelf loc_to ON a.location_to = loc_to.code AND a.wh_to = loc_to.whcode
             WHERE a.trans_flag = 124 AND a.doc_date = %s
             ORDER BY a.doc_date, a.doc_no
             """
@@ -457,9 +472,16 @@ async def get_transfers(date: Optional[str] = None):
                    CASE WHEN a.doc_success = 0 THEN 'ລໍຖ້າໂອນ' 
                         WHEN a.doc_success = 1 THEN 'ໂອນສຳເລັດ' 
                         ELSE '' END AS status_name,
-                   to_char(a.create_datetime, 'YYYY-MM-DD HH24:MI:SS') as doc_date_time
+                   to_char(a.create_datetime, 'YYYY-MM-DD HH24:MI:SS') as doc_date_time,
+                   wh_from.name_1 as wh_from_name, wh_to.name_1 as wh_to_name,
+                   loc_from.name_1 as location_from_name, loc_to.name_1 as location_to_name,
+                   a.wh_from, a.wh_to, a.location_from, a.location_to
             FROM ic_trans a
             LEFT JOIN erp_user u ON u.code = a.creator_code
+            LEFT JOIN ic_warehouse wh_from ON a.wh_from = wh_from.code
+            LEFT JOIN ic_warehouse wh_to ON a.wh_to = wh_to.code
+            LEFT JOIN ic_shelf loc_from ON a.location_from = loc_from.code AND a.wh_from = loc_from.whcode
+            LEFT JOIN ic_shelf loc_to ON a.location_to = loc_to.code AND a.wh_to = loc_to.whcode
             WHERE a.trans_flag = 124
             ORDER BY a.doc_date DESC, a.doc_no DESC
             """
@@ -473,6 +495,60 @@ async def get_transfers(date: Optional[str] = None):
         
     except Exception as e:
         print(f"Error executing transfers query: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+    finally:
+        if connection:
+            connection_pool.putconn(connection)
+
+class UpdateTransferRequest(BaseModel):
+    """Model for updating transfer request"""
+    wh_from: str
+    location_from: str
+    wh_to: str
+    location_to: str
+
+@app.put("/api/transfers/{transfer_id}")
+async def update_transfer(transfer_id: str, request: UpdateTransferRequest):
+    """Update transfer details"""
+    if not connection_pool:
+        raise HTTPException(status_code=503, detail="Database not available")
+    
+    connection = None
+    try:
+        connection = connection_pool.getconn()
+        connection.autocommit = False
+        cursor = connection.cursor()
+        
+        # Update transfer header
+        update_query = """
+        UPDATE ic_trans 
+        SET wh_from = %s, location_from = %s, wh_to = %s, location_to = %s,
+            lastedit_datetime = CURRENT_TIMESTAMP
+        WHERE doc_no = %s
+        """
+        cursor.execute(update_query, (
+            request.wh_from, 
+            request.location_from, 
+            request.wh_to, 
+            request.location_to, 
+            transfer_id
+        ))
+        
+        # Check if any row was updated
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Transfer not found")
+        
+        connection.commit()
+        
+        # Return updated transfer
+        return {"message": "Transfer updated successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        if connection:
+            connection.rollback()
+        print(f"Error updating transfer {transfer_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
     finally:
         if connection:
@@ -492,7 +568,6 @@ async def get_warehouses():
         query = """
         SELECT code, name_1 as name
         FROM ic_warehouse 
-        WHERE code IN ('1301', '1302')
         ORDER BY code
         """
         cursor.execute(query)
