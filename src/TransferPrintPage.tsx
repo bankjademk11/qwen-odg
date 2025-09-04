@@ -1,16 +1,42 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Container, Row, Col, Table, Button, Card, Spinner } from 'react-bootstrap';
+import React, { useState, useEffect } from 'react';
+import { Button, Spinner } from 'react-bootstrap';
 import { useNavigate, useParams } from 'react-router-dom';
 import './TransferPrintPage.css'; // We will create this CSS file for print styles
 
-const TransferPrintPage: React.FC = () => {
-  const [transfer, setTransfer] = useState<any>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+/**
+ * @interface TransferDetail
+ * @description Represents a single item in the transfer.
+ */
+interface TransferDetail {
+  item_code: string;
+  item_name: string;
+  unit_code: string;
+  qty: string;
+}
+
+/**
+ * @interface TransferData
+ * @description Represents the full structure of the transfer data.
+ */
+interface TransferData {
+  transfer_no: string;
+  doc_no: string;
+  doc_date_time_formatted: string;
+  creator_name: string;
+  wh_from_name: string;
+  wh_to_name: string;
+  details: TransferDetail[];
+  quantity: number;
+}
+
+const TransferPrintPage = () => {
+  const [transfer, setTransfer] = useState<TransferData | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const MIN_ROWS = 20;
+  const MIN_ROWS_PER_PAGE = 30; // จำนวนแถวขั้นต่ำที่ต้องการให้แสดงในแต่ละหน้า
 
   const navigate = useNavigate();
-  const { transferId } = useParams<{ transferId: string }>();
+  const { transferId } = useParams();
 
   useEffect(() => {
     const fetchTransferDetails = async () => {
@@ -43,108 +69,97 @@ const TransferPrintPage: React.FC = () => {
 
   if (loading) {
     return (
-      <Container className="mt-4 text-center">
+      <div className="no-print d-flex flex-column align-items-center justify-content-center vh-100">
         <Spinner animation="border" />
-        <p>ກຳລັງໂຫຼດຂໍ້ມູນໃບບິນ...</p>
-      </Container>
+        <p className="mt-2">ກຳລັງໂຫຼດຂໍ້ມູນໃບບິນ...</p>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <Container className="mt-4">
-        <div className="no-print">
-            <h2>ເກີດຂໍ້ຜິດພາດ</h2>
-            <p>{error}</p>
-            <Button variant="primary" onClick={() => navigate('/transfers')}>ກັບໄປ</Button>
-        </div>
-      </Container>
+      <div className="no-print d-flex flex-column align-items-center justify-content-center vh-100">
+        <h2>ເກີດຂໍ້ຜິດພາດ</h2>
+        <p>{error}</p>
+        <Button variant="primary" onClick={() => navigate('/transfers')}>ກັບໄປ</Button>
+      </div>
     );
   }
 
   if (!transfer) {
     return (
-      <Container className="mt-4">
-        <div className="no-print">
-            <h2>ບໍ່ພົບຂໍ້ມູນການໂອນ</h2>
-            <Button variant="primary" onClick={() => navigate('/transfers')}>ກັບໄປ</Button>
-        </div>
-      </Container>
+      <div className="no-print d-flex flex-column align-items-center justify-content-center vh-100">
+        <h2>ບໍ່ພົບຂໍ້ມູນການໂອນ</h2>
+        <Button variant="primary" onClick={() => navigate('/transfers')}>ກັບໄປ</Button>
+      </div>
     );
   }
 
-  const emptyRows = Math.max(0, MIN_ROWS - (transfer.details?.length || 0));
+  const emptyRows = Math.max(0, MIN_ROWS_PER_PAGE - (transfer.details?.length || 0));
 
   return (
     <div className="print-container">
         <div className="no-print my-3">
             <Button variant="secondary" onClick={() => navigate('/transfers')}>&larr; ກັບໄປລາຍການຂໍໂອນ</Button>
         </div>
-        <Card className="p-4 print-card">
-            <header className="bill-header mb-4">
-                <Row className="align-items-center">
-                    <Col xs={3} className="text-start">
-                        <img src="/image/logo.png" alt="Company Logo" className="company-logo" />
-                    </Col>
-                    <Col xs={9} className="text-start">
-                        <h4 className="company-name">ໂອດ່ຽນກຸບ ສຳນັກງານໃຫຍ່</h4>
-                        <p className="company-address mb-0">ບ. ຂົວຫຼວງ ມ.ຈັນທະບູລິ ນະຄອນຫຼວງວຽງຈັນ</p>
-                        <p className="company-contact mb-0">Tel:(+856-21)412663, 450443,263412, fax:263411</p>
-                        <p className="company-contact mb-0">info@odien.net</p>
-                    </Col>
-                </Row>
-                <div className="header-divider"></div> {/* New divider */}
-                <h2 className="text-center mt-4">ໃບຂໍໂອນສິນຄ້າ</h2> {/* Main bill title, now placeholder */}
+        <div className="print-card">
+            <header className="bill-header">
+                <div className="header-info">
+                    <img src="/image/logo.png" alt="Company Logo" className="company-logo" />
+                    <div className="company-details">
+                        <h4 className="company-name">ໂອດ່ຽນກຸບ ສໍານັກງານໃຫຍ່</h4>
+                        <p className="company-address">ບ. ຂົວຫຼວງ ມ.ຈັນທະບູລິ ນະຄອນຫຼວງວຽງຈັນ</p>
+                        <p className="company-contact">Tel:(+856-21)412663, 450443,263412, fax:263411</p>
+                        <p className="company-contact">info@odien.net</p>
+                    </div>
+                </div>
+                <h2 className="bill-title">ໃບຂໍໂອນສິນຄ້າ</h2>
             </header>
+            <div className="header-meta-info">
+                <div className="meta-group">
+                    <div className="meta-row">
+                        <span>ເລກທີ່ຂໍໂອນ:</span>
+                        <span className="meta-value">{transfer.transfer_no || transfer.doc_no || 'ບໍ່ມີຂໍ້ມູນ'}</span>
+                    </div>
+                    <div className="meta-row">
+                        <span>ວັນທີເວລາ:</span>
+                        <span className="meta-value">{transfer.doc_date_time_formatted}</span>
+                    </div>
+                    <div className="meta-row">
+                        <span>ຜູ້ສ້າງ:</span>
+                        <span className="meta-value">{transfer.creator_name || 'N/A'}</span>
+                    </div>
+                </div>
+                <div className="meta-group">
+                    <div className="meta-row">
+                        <span>ຈາກສາງ:</span>
+                        <span className="meta-value warehouse-name">{transfer.wh_from_name || 'N/A'}</span>
+                    </div>
+                    <div className="meta-row">
+                        <span>ໄປສາງ:</span>
+                        <span className="meta-value warehouse-name">{transfer.wh_to_name || 'N/A'}</span>
+                    </div>
+                </div>
+            </div>
+            
             <main className="bill-main">
-                <Row className="mb-2">
-                    <Col md={7} className="transfer-meta-info">
-                        <Row>
-                            <Col xs={6}><strong>ເລກທີ່ຂໍໂອນ:</strong></Col>
-                            <Col xs={6}>{transfer.transfer_no || transfer.doc_no || 'ບໍ່ມີຂໍ້ມູນ'}</Col>
-                        </Row>
-                        <Row>
-                            <Col xs={6}><strong>ວັນທີເວລາ:</strong></Col>
-                            <Col xs={6}>{transfer.doc_date_time_formatted}</Col>
-                        </Row>
-                        <Row>
-                            <Col xs={6}><strong>ຜູ້ສ້າງ:</strong></Col>
-                            <Col xs={6}>{transfer.creator_name || 'N/A'}</Col>
-                        </Row>
-                    </Col>
-                    <Col md={5} className="warehouse-info">
-                        <Row>
-                            <Col><strong>ຈາກສາງ:</strong> <span className="warehouse-name">{transfer.wh_from_name || 'N/A'}</span></Col>
-                        </Row>
-                        <Row>
-                            <Col><small>{transfer.location_from_name || 'N/A'}</small></Col>
-                        </Row>
-                        <Row>
-                            <Col><strong>ໄປສາງ:</strong> <span className="warehouse-name">{transfer.wh_to_name || 'N/A'}</span></Col>
-                        </Row>
-                        <Row>
-                            <Col><small>{transfer.location_to_name || 'N/A'}</small></Col>
-                        </Row>
-                    </Col>
-                </Row>
-
-                <Table bordered responsive className="mt-3">
-                    <thead className="table-light">
+                <table className="table">
+                    <thead>
                         <tr>
                             <th>ລະຫັດສິນຄ້າ</th>
                             <th>ຊື່ສິນຄ້າ</th>
                             <th>ໜ່ວຍ</th>
-                            <th className="text-end">ຈຳນວນ</th>
+                            <th className="text-end">ຈໍານວນ</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {transfer.details?.map((item: any) => (
-                        <tr key={item.item_code}>
-                            <td>{item.item_code}</td>
-                            <td>{item.item_name}</td>
-                            <td>{item.unit_code}</td>
-                            <td className="text-end">{Math.round(parseFloat(item.qty))}</td>
-                        </tr>
+                        {transfer.details?.map((item: TransferDetail, index: number) => (
+                            <tr key={index}>
+                                <td>{item.item_code}</td>
+                                <td>{item.item_name}</td>
+                                <td>{item.unit_code}</td>
+                                <td className="text-end">{Math.round(parseFloat(item.qty))}</td>
+                            </tr>
                         ))}
                         {Array.from({ length: emptyRows }).map((_, index) => (
                             <tr key={`empty-${index}`}>
@@ -156,28 +171,34 @@ const TransferPrintPage: React.FC = () => {
                         ))}
                     </tbody>
                     <tfoot>
-                        <tr className="table-light">
-                            <td colSpan={2} className="text-end"><strong>ຈຳນວນທັງໝົດ:</strong></td>
-                            <td></td> {/* Empty cell for the swapped 'unit' column */}
-                            <td className="text-end"><strong>{Math.round(transfer.quantity || 0)}</strong></td>
+                        <tr>
+                            <td colSpan={3} className="text-end total-label">ຈຳນວນທັງໝົດ:</td>
+                            <td className="text-end total-value">{Math.round(transfer.quantity || 0)}</td>
                         </tr>
                     </tfoot>
-                </Table>
+                </table>
             </main>
-            <div className="footer-divider"></div>
-            <footer className="mt-auto bill-footer">
-                <Row>
-                    <Col className="text-center">
-                        <p>_________________________</p>
-                        <p>( ຜູ້ຂໍໂອນ )</p>
-                    </Col>
-                    <Col className="text-center">
-                        <p>_________________________</p>
-                        <p>( ຜູ້ອະນຸມັດ )</p>
-                    </Col>
-                </Row>
+            
+            <footer className="bill-footer">
+                <div className="note-section">
+                    <p className="note-text">ໝາຍເຫດ: ໃຫ້ແຍກໃບຮັບໂອນສິນຄ້າຕາມສາງຜູ້ຮັບ</p>
+                    <div className="total-summary">
+                        <span>ຈຳນວນ:</span>
+                        <span className="total-amount">{Math.round(transfer.quantity || 0)}</span>
+                    </div>
+                </div>
+                <div className="signature-section">
+                    <div className="signature-box">
+                        <p className="signature-line"></p>
+                        <p className="signature-label">( ຜູ້ຂໍໂອນ )</p>
+                    </div>
+                    <div className="signature-box">
+                        <p className="signature-line"></p>
+                        <p className="signature-label">( ຜູ້ອະນຸມັດ )</p>
+                    </div>
+                </div>
             </footer>
-        </Card>
+        </div>
     </div>
   );
 };

@@ -1,96 +1,155 @@
 /* General layout for screen view */
 .print-container {
     width: 100%;
-    max-width: 800px; /* A standard A4-like width */
+    max-width: 800px;
     margin: 0 auto;
-    padding: 10px;
+    padding: 20px;
+}
+
+.print-card {
+    border: 1px solid #ccc;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    background-color: #fff;
+    padding: 20px;
 }
 
 /* Header styles */
-.bill-header .company-logo {
-    max-width: 120px;
-    height: auto;
+.bill-header {
+    text-align: center;
 }
-
-.bill-header .company-name {
+.header-info {
+    display: flex;
+    align-items: center;
+    border-bottom: 2px solid #000;
+    padding-bottom: 10px;
+}
+.company-logo {
+    max-width: 100px;
+    height: auto;
+    margin-right: 20px;
+}
+.company-details {
+    flex-grow: 1;
+    text-align: left;
+}
+.company-name {
     font-size: 1.1em;
     font-weight: bold;
     margin-bottom: 2px;
 }
-
-.bill-header .company-address,
-.bill-header .company-contact {
+.company-address,
+.company-contact {
     font-size: 0.65em;
     margin-bottom: 1px;
+    line-height: 1.2;
 }
-
-.header-divider {
-    border-top: 1px solid #000;
-    margin-top: 8px;
-    padding-top: 3px;
-}
-
-.bill-header h2 {
+.bill-title {
     font-size: 1.4em;
+    font-weight: bold;
     margin-top: 10px;
+    margin-bottom: 20px;
+}
+
+/* Meta Info */
+.header-meta-info {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    font-size: 0.7em;
+    line-height: 1.5;
+    margin-bottom: 10px;
+}
+.meta-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 0;
+}
+.meta-value {
+    font-weight: bold;
+}
+.warehouse-name {
+    font-weight: bold;
 }
 
 /* Table styles */
 .table {
     font-size: 0.75em;
     width: 100%;
+    border-collapse: collapse;
 }
-
 .table th, .table td {
-    padding: 0.2rem 0.4rem;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #000;
 }
-
+.table thead th {
+    background-color: #f8f9fa;
+    border: 1px solid #000;
+}
 /* Ensure empty rows have a consistent height */
 .table tbody tr td:empty::after {
     content: "\00a0"; /* Non-breaking space */
 }
 
-/* Meta and Warehouse Info */
-.transfer-meta-info,
-.warehouse-info {
-    font-size: 0.7em;
-    line-height: 1.4;
-}
-
-.warehouse-info .warehouse-name {
-    font-weight: 500; /* Slightly bolder */
-}
-
 /* Footer styles */
-.footer-divider {
-    border-top: 1px solid #eee;
-    margin-top: 1rem;
+.bill-footer {
+    display: flex;
+    flex-direction: column;
+    margin-top: 20px;
+}
+.note-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    font-size: 0.75em;
+    margin-bottom: 20px;
+}
+.note-text {
+    flex-grow: 1;
+    margin: 0;
+}
+.total-summary {
+    white-space: nowrap;
+    font-weight: bold;
+}
+.total-amount {
+    margin-left: 5px;
 }
 
-.bill-footer p {
+.signature-section {
+    display: flex;
+    justify-content: space-around;
+    text-align: center;
+}
+.signature-box {
+    width: 45%;
+}
+.signature-line {
+    border-bottom: 1px solid black;
+    margin: 40px 0 5px 0;
+}
+.signature-label {
     font-size: 0.8em;
-    margin-bottom: 0;
+    margin: 0;
 }
 
 /* --- PRINT-SPECIFIC STYLES --- */
 @media print {
     @page {
         size: A4;
-        margin: 1cm; /* Browser default is often ~1 inch, this is smaller */
+        margin: 1cm;
     }
-
     .no-print {
         display: none !important;
     }
-
     body, html {
+        height: 100%;
         margin: 0;
         padding: 0;
         background-color: #fff;
         -webkit-print-color-adjust: exact;
     }
-
     .print-container {
+        height: 100%;
         width: 100%;
         max-width: none;
         margin: 0;
@@ -98,53 +157,68 @@
         border: none;
         box-shadow: none;
     }
-
     .print-card {
-        display: flex;
-        flex-direction: column;
-        height: 100%; /* Fill the available page height */
+        height: 100%;
         padding: 0 !important;
         border: none !important;
         box-shadow: none !important;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .bill-header {
+        text-align: left;
+    }
+    .bill-header .company-details {
+        text-align: left;
     }
 
     .bill-main {
-        flex-grow: 1; /* This makes the main content take up available space */
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
     }
-
-    /* Set font sizes using points for better print control */
+    
     .table {
         font-size: 9pt;
+        height: 100%;
+    }
+    .table thead {
+        position: sticky;
+        top: 0;
+    }
+    .table tbody {
+        flex-grow: 1;
+    }
+    .table tfoot {
+        position: sticky;
+        bottom: 0;
     }
 
-    .bill-header .company-name {
+    .company-name {
         font-size: 10pt;
     }
-
-    .bill-header .company-address,
-    .bill-header .company-contact {
+    .company-address,
+    .company-contact {
         font-size: 7pt;
     }
-
-    .bill-header h2 {
+    .bill-title {
         font-size: 12pt;
     }
-
+    .header-meta-info {
+        font-size: 7pt;
+        margin-bottom: 10px;
+    }
     .table th, .table td {
         padding: 2px 4px;
     }
-
-    .transfer-meta-info,
-    .warehouse-info {
-        font-size: 7pt;
-        line-height: 1.5;
-    }
-
     .bill-footer {
-        margin-top: auto; /* Pushes footer to the bottom in flex container */
+        margin-top: auto;
     }
-
-    .bill-footer p {
+    .note-section {
+        font-size: 8pt;
+    }
+    .signature-label {
         font-size: 8pt;
     }
 }

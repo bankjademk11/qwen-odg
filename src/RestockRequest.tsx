@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Container, Row, Col, Table, Button, Form } from 'react-bootstrap';
 import { useNavigate, useLocation } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import NavigationBar from './NavigationBar';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
 const ITEMS_PER_LOAD = 20;
 const RESTOCK_ITEMS_STORAGE_KEY = 'restockItems';
@@ -41,7 +43,7 @@ function RestockRequest() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const user = JSON.parse(localStorage.getItem('loggedInUser') || '{}');
+  const user = useMemo(() => JSON.parse(localStorage.getItem('loggedInUser') || '{}'), []);
   const creatorCode = user.code || null;
 
   const getTodayDate = () => {
@@ -118,20 +120,15 @@ function RestockRequest() {
     }
   }, [sourceWarehouses, sourceWarehouse]);
 
-  // DEBUG: Set default destination warehouse after the list has been loaded
+  // Auto-select default destination warehouse
   useEffect(() => {
-    console.log("Checking for default destination warehouse...");
-    console.log("User WHT:", user.ic_wht);
-    console.log("Destination warehouses loaded:", destinationWarehouses);
-    if (user && user.ic_wht && destinationWarehouses.length > 0) {
-      const userWarehouseExists = destinationWarehouses.some(wh => wh.code === user.ic_wht);
-      console.log("Does user warehouse exist in list?", userWarehouseExists);
-      if (userWarehouseExists) {
-        console.log("Setting destination warehouse to:", user.ic_wht);
+    if (destinationWarehouses.length > 0 && !destinationWarehouse) {
+      const userWarehouse = destinationWarehouses.find(wh => wh.code === user.ic_wht);
+      if (userWarehouse) {
         setDestinationWarehouse(user.ic_wht);
       }
     }
-  }, [destinationWarehouses, user]);
+  }, [destinationWarehouses, user.ic_wht, destinationWarehouse]);
 
   // Fetch source locations when source warehouse changes
   useEffect(() => {
@@ -157,36 +154,39 @@ function RestockRequest() {
   useEffect(() => {
     if (destinationWarehouse) {
       const fetchLocations = async () => {
-        setDestinationLocations([]);
         try {
           const response = await fetch(`http://localhost:8004/api/destination-locations/${destinationWarehouse}`);
           if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-          const data = await response.json();
-          setDestinationLocations(data);
+          const newLocations = await response.json();
+          setDestinationLocations(newLocations);
+
+          // Check if the currently selected location is still valid
+          const isCurrentLocationInNewList = newLocations.some((loc: any) => loc.code === destinationLocation);
+          if (!isCurrentLocationInNewList) {
+            setDestinationLocation(''); // If not, clear the selection
+          }
         } catch (error) {
           console.error(`Failed to fetch destination locations for warehouse ${destinationWarehouse}`, error);
+          setDestinationLocations([]);
+          setDestinationLocation('');
         }
       };
       fetchLocations();
     } else {
       setDestinationLocations([]);
+      setDestinationLocation('');
     }
   }, [destinationWarehouse]);
 
-  // DEBUG: Set default destination location after the list has been loaded
+  // Auto-select default destination location
   useEffect(() => {
-    console.log("Checking for default destination location...");
-    console.log("User Shelf:", user.ic_shelf);
-    console.log("Destination locations loaded:", destinationLocations);
-    if (user && user.ic_shelf && destinationLocations.length > 0) {
-      const userShelfExists = destinationLocations.some(loc => loc.code === user.ic_shelf);
-      console.log("Does user shelf exist in list?", userShelfExists);
-      if (userShelfExists) {
-        console.log("Setting destination location to:", user.ic_shelf);
+    if (destinationLocations.length > 0 && !destinationLocation) {
+      const userLocation = destinationLocations.find(loc => loc.code === user.ic_shelf);
+      if (userLocation) {
         setDestinationLocation(user.ic_shelf);
       }
     }
-  }, [destinationLocations, user]);
+  }, [destinationLocations, user.ic_shelf, destinationLocation]);
 
   useEffect(() => {
     localStorage.setItem(RESTOCK_ITEMS_STORAGE_KEY, JSON.stringify(restockItems));
@@ -367,14 +367,16 @@ function RestockRequest() {
     <div>
       <NavigationBar />
       <Container fluid className="mt-4">
-        <Row className="mb-3 px-3">
-            <Col md={3}>
+        <Row className="mb-3 px-3 align-items-end">
+            <Col md={2}>
               <Form.Group controlId="formDate">
                 <Form.Label>ເລືອກວັນທີ:</Form.Label>
-                <Form.Control
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
+                <DatePicker
+                  selected={selectedDate ? new Date(selectedDate) : null}
+                  onChange={(date: Date | null) => setSelectedDate(date ? date.toISOString().split('T')[0] : '')}
+                  dateFormat="yyyy-MM-dd"
+                  className="form-control form-control-sm"
+                  placeholderText="ກະລຸນາເລືອກວັນທີ"
                 />
               </Form.Group>
             </Col>
@@ -384,6 +386,7 @@ function RestockRequest() {
                 <Form.Select
                   value={sourceWarehouse}
                   onChange={(e) => setSourceWarehouse(e.target.value)}
+                  className="form-select-sm"
                 >
                   <option value="">ເລືອກຄັງ...</option>
                   {sourceWarehouses.map(wh => (
@@ -399,6 +402,7 @@ function RestockRequest() {
                   value={sourceLocation}
                   onChange={(e) => setSourceLocation(e.target.value)}
                   disabled={!sourceWarehouse}
+                  className="form-select-sm"
                 >
                   <option value="">ເລືອກບ່ອນເກັບ...</option>
                   {sourceLocations.map(loc => (
@@ -413,6 +417,7 @@ function RestockRequest() {
                 <Form.Select
                   value={destinationWarehouse}
                   onChange={(e) => setDestinationWarehouse(e.target.value)}
+                  className="form-select-sm"
                 >
                   <option value="">ເລືອກຄັງ...</option>
                   {destinationWarehouses.map(wh => (
@@ -421,13 +426,14 @@ function RestockRequest() {
                 </Form.Select>
               </Form.Group>
             </Col>
-            <Col md={3}>
+            <Col md={2}>
               <Form.Group controlId="destinationLocation">
                 <Form.Label>ບ່ອນເກັບປາຍທາງ:</Form.Label>
                 <Form.Select
                   value={destinationLocation}
                   onChange={(e) => setDestinationLocation(e.target.value)}
                   disabled={!destinationWarehouse}
+                  className="form-select-sm"
                 >
                   <option value="">ເລືອກບ່ອນເກັບ...</option>
                   {destinationLocations.map(loc => (
@@ -499,6 +505,7 @@ function RestockRequest() {
               variant="success" 
               className="mb-3 w-100"
               onClick={handleGenerateBill}
+              disabled={!selectedDate || !sourceWarehouse || !sourceLocation || !destinationWarehouse || !destinationLocation}
             >
               ສ້າງບິນຂໍໂອນ
             </Button>
