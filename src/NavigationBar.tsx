@@ -34,22 +34,28 @@ function NavigationBar() {
   };
 
   return (
-    <Navbar bg="primary" variant="dark" expand="lg">
-      <Container>
-        <Navbar.Brand as={Link} to="/" className="fw-bold">ODIEN MALL</Navbar.Brand>
+    <Navbar variant="dark" expand="lg" style={{ backgroundColor: '#6fa8dc', padding: '0.75rem 1.5rem' }}>
+      <Container fluid>
+        <Navbar.Brand as={Link} to="/" className="fw-bold d-flex align-items-center" style={{ padding: '0.25rem 0' }}>
+          <img 
+            src="/image/logo.png" 
+            alt="Logo" 
+            style={{ height: '40px', marginRight: '15px' }}
+          />
+        </Navbar.Brand>
         <Navbar.Toggle />
         <Navbar.Collapse className="justify-content-end">
           <Nav className="align-items-center">
-            <Nav.Link as={Link} to="/products" className="mx-2 px-3 py-2 rounded bg-light text-primary fw-bold">
+            <Nav.Link as={Link} to="/products" className="mx-2 px-3 py-2 rounded bg-light text-primary fw-bold" style={{ fontSize: '1rem' }}>
               <i className="bi bi-list"></i> ລາຍການສິນຄ້າ
             </Nav.Link>
-            <Nav.Link as={Link} to="/transfers" className="mx-2 px-3 py-2 rounded bg-light text-primary fw-bold">
+            <Nav.Link as={Link} to="/transfers" className="mx-2 px-3 py-2 rounded bg-light text-primary fw-bold" style={{ fontSize: '1rem' }}>
               <i className="bi bi-cart-plus"></i> ຄຳຂໍເຕີມສິນຄ້າ
             </Nav.Link>
             {
               isLoggedIn ? (
                 <Dropdown as={Nav.Item} align="end">
-                  <Dropdown.Toggle as={Nav.Link} className="mx-2 px-3 py-2 rounded bg-light text-primary fw-bold">
+                  <Dropdown.Toggle as={Nav.Link} className="mx-2 px-3 py-2 rounded bg-light text-primary fw-bold" style={{ fontSize: '1rem' }}>
                     <i className="bi bi-person-circle me-2"></i> {userName}
                   </Dropdown.Toggle>
                   <Dropdown.Menu>
@@ -59,7 +65,7 @@ function NavigationBar() {
                   </Dropdown.Menu>
                 </Dropdown>
               ) : (
-                <Nav.Link as={Link} to="/login" className="ms-3 text-light">
+                <Nav.Link as={Link} to="/login" className="ms-3 text-light" style={{ fontSize: '1rem' }}>
                   <i className="bi bi-person-circle me-2"></i> Login
                 </Nav.Link>
               )

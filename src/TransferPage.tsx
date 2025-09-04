@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Table, Button, Form, Spinner } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import NavigationBar from './NavigationBar';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
 // Helper function to get today's date in YYYY-MM-DD format
 const getTodayDate = () => {
@@ -91,45 +93,50 @@ const TransferPage: React.FC = () => {
     <div>
       <NavigationBar />
       <Container className="mt-4">
-        <Row className="mb-3">
-          <Col md={4}>
-            <Form.Group controlId="filterTransferNumber">
-              <Form.Label>ເລກທີ່ຂໍໂອນ:</Form.Label>
-              <Form.Control
-                type="text"
-                placeholder="ປ້ອນເລກທີ່ (e.g. 0001 ຫຼື FR25010001)"
-                value={transferNumber}
-                onChange={(e) => setTransferNumber(e.target.value)}
-              />
-            </Form.Group>
-          </Col>
-          <Col md={4}>
-            <Form.Group controlId="filterDate">
-              <Form.Label>ວັນທີເດືອນປີ:</Form.Label>
-              <Form.Control
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-              />
-            </Form.Group>
-          </Col>
-          <Col md={4} className="d-flex align-items-end justify-content-end">
-            <Button variant="success" onClick={handleCreateTransfer}>
-              ສ້າງລາຍການຂໍໂອນ
-            </Button>
-          </Col>
-        </Row>
+        <div className="filter-section">
+          <Row className="filter-row justify-content-between">
+            <Col md={3}>
+              <Form.Group controlId="filterTransferNumber" className="mb-1">
+                <Form.Label className="mb-1">ເລກທີ່ຂໍໂອນ:</Form.Label>
+                <Form.Control
+                  type="text"
+                  placeholder="ປ້ອນເລກທີ່ (e.g. 0001 ຫຼື FR25010001)"
+                  value={transferNumber}
+                  onChange={(e) => setTransferNumber(e.target.value)}
+                  className="form-control form-control-sm"
+                />
+              </Form.Group>
+            </Col>
+            <Col md={3}>
+              <Form.Group controlId="filterDate" className="mb-1">
+                <Form.Label className="mb-1">ວັນທີເດືອນປີ:</Form.Label>
+                <DatePicker
+                  selected={selectedDate ? new Date(selectedDate) : null}
+                  onChange={(date: Date | null) => setSelectedDate(date ? date.toISOString().split('T')[0] : '')}
+                  dateFormat="yyyy-MM-dd"
+                  className="form-control form-control-sm"
+                  placeholderText="ກະລຸນາເລືອກວັນທີ"
+                />
+              </Form.Group>
+            </Col>
+            <Col md={3} className="d-flex align-items-end justify-content-end">
+              <Button variant="success" size="sm" onClick={handleCreateTransfer}>
+                ສ້າງລາຍການຂໍໂອນ
+              </Button>
+            </Col>
+          </Row>
+        </div>
 
-        <h2>ລາຍການຂໍ</h2>
+        <h2 className="mt-4">ລາຍການຂໍ</h2>
         {loading ? (
           <div className="text-center">
             <Spinner animation="border" />
             <p>ກຳລັງໂຫຼດຂໍ້ມູນຂອງວັນທີ {selectedDate}...</p>
           </div>
         ) : error ? (
-          <p style={{ color: 'red' }}>เกิดຂ้อผิดพลาด: {error}</p>
+          <p style={{ color: 'red' }}>เกิดข้อผิดพลาด: {error}</p>
         ) : (
-          <Table striped bordered hover responsive>
+          <Table striped bordered hover responsive className="mt-3">
             <thead>
               <tr>
                 <th>ວັນທີເວລາຂໍ</th>

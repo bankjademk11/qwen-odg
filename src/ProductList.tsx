@@ -162,8 +162,14 @@ const ProductList: React.FC = () => {
       <div>
         <NavigationBar />
         <Container className="mt-4">
-          <h2>Product List (Loading...)</h2>
-          <p>Loading products from backend...</p>
+          <div className="product-list-container">
+            <div className="product-list-header">
+              <h2>ການເຄື່ອນໄຫວສິນຄ້າ (Loading...)</h2>
+            </div>
+            <div className="loading-indicator">
+              <p>Loading products from backend...</p>
+            </div>
+          </div>
         </Container>
       </div>
     );
@@ -174,9 +180,15 @@ const ProductList: React.FC = () => {
       <div>
         <NavigationBar />
         <Container className="mt-4">
-          <h2>Product List (Error)</h2>
-          <p>Error: {error}</p>
-          <p>Please ensure your backend server is running at http://localhost:8004.</p>
+          <div className="product-list-container">
+            <div className="product-list-header">
+              <h2>ການເຄື່ອນໄຫວສິນຄ້າ (Error)</h2>
+            </div>
+            <div className="alert alert-danger">
+              <p>Error: {error}</p>
+              <p>Please ensure your backend server is running at http://localhost:8004.</p>
+            </div>
+          </div>
         </Container>
       </div>
     );
@@ -186,77 +198,98 @@ const ProductList: React.FC = () => {
     <div>
       <NavigationBar />
       <Container className="mt-4">
-        <h2>ການເຄື່ອນໄຫວສິນຄ້າ</h2>
-        <Row className="mb-3 filter-row justify-content-between">
-          <Col md={3}>
-            <Form.Group controlId="formDate" className="mb-1">
-              <Form.Label className="mb-1">ເລືອກວັນທີ:</Form.Label>
-              <DatePicker
-                selected={selectedDate ? new Date(selectedDate) : null}
-                onChange={(date: Date | null) => setSelectedDate(date ? date.toISOString().split('T')[0] : '')}
-                dateFormat="yyyy-MM-dd"
-                className="form-control form-control-sm"
-                placeholderText="ກະລຸນາເລືອກວັນທີ"
-              />
-            </Form.Group>
-          </Col>
-          <Col md={3}>
-            <Form.Group controlId="warehouseFilter" className="mb-1">
-              <Form.Label className="mb-1">ຄັງສິນຄ້າ:</Form.Label>
-              <Form.Select
-                value={selectedWarehouse}
-                onChange={(e) => setSelectedWarehouse(e.target.value)}
-                className="form-control form-control-sm"
-              >
-                <option value="">ທັງຫມົດ</option>
-                {warehouses.map(wh => (
-                  <option key={`wh-${wh.code}`} value={wh.code}>{wh.name}</option>
-                ))}
-              </Form.Select>
-            </Form.Group>
-          </Col>
-        </Row>
-        <Row className="mb-3">
-          <Col>
+        <div className="product-list-container">
+          <div className="product-list-header">
+            <h2>ການເຄື່ອນໄຫວສິນຄ້າ</h2>
+          </div>
+          
+          <div className="filter-section">
+            <Row className="filter-row justify-content-between">
+              <Col md={3}>
+                <Form.Group controlId="formDate" className="mb-1">
+                  <Form.Label className="mb-1">ເລືອກວັນທີ:</Form.Label>
+                  <DatePicker
+                    selected={selectedDate ? new Date(selectedDate) : null}
+                    onChange={(date: Date | null) => setSelectedDate(date ? date.toISOString().split('T')[0] : '')}
+                    dateFormat="yyyy-MM-dd"
+                    className="form-control form-control-sm"
+                    placeholderText="ກະລຸນາເລືອກວັນທີ"
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={3}>
+                <Form.Group controlId="warehouseFilter" className="mb-1">
+                  <Form.Label className="mb-1">ຄັງສິນຄ້າ:</Form.Label>
+                  <Form.Select
+                    value={selectedWarehouse}
+                    onChange={(e) => setSelectedWarehouse(e.target.value)}
+                    className="form-control form-control-sm"
+                  >
+                    <option value="">ທັງຫມົດ</option>
+                    {warehouses.map(wh => (
+                      <option key={`wh-${wh.code}`} value={wh.code}>{wh.name}</option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+            </Row>
+          </div>
+          
+          <div className="restock-button-container">
             <Link to={`/restock?sourceWarehouse=${selectedWarehouse}`}>
-              {/* <Button variant="primary">ໄປທີ່ໜ້າ Restock ດ້ວຍຄັງທີ່ເລືອກ</Button> */}
+              <Button variant="primary">ໄປທີ່ໜ້າ Restock ດ້ວຍຄັງທີ່ເລືອກ</Button>
             </Link>
-          </Col>
-        </Row>
-        {data.length === 0 && !loading ? (
-          <p>No data found for analysis.</p>
-        ) : (
-          <Table striped bordered hover responsive>
-            <thead>
-              <tr>
-                <th>ວັນທີ</th>
-                <th>ລະຫັດສິນຄ້າ</th>
-                <th>ຊື່ສິນຄ້າ</th>
-                <th>ຫົວໜ່ວຍ</th>
-                <th>ຈຳນວນທີ່ເຫລືອມື້ກ່ອນ</th>
-                <th>ຂາຍໄປແລ້ວ</th>
-                <th>ຍັງເຫຼືອ</th>
-                <th>ເຕີມໄດ້</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((row, rowIndex) => (
-                <tr key={rowIndex}>
-                  <td>{new Date(row.doc_date).toLocaleDateString('en-GB')}</td>
-                  <td>{row.item_code}</td>
-                  <td>{row.item_name}</td>
-                  <td>{row.unit_code}</td>
-                  <td>{Math.floor(row.balance_qty_start || 0)}</td>
-                  <td>{Math.floor(row.sale_qty)}</td>
-                  <td>{Math.floor(row.balance_qty)}</td>
-                  <td>{Math.floor(row.balance_qty_compare || 0)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        )}
-        {loading && offset > 0 && <p>ກຳລັງໂຫຼດຂໍມູນເພີ່ມເຕີມ...</p>}
-        {!hasMore && data.length > 0 && <p>ບໍ່ມີຂໍມູນເພີ່ມເຕີມ.</p>}
+          </div>
+          
+          <div className="product-table">
+            {data.length === 0 && !loading ? (
+              <div className="no-data-message">
+                <p>No data found for analysis.</p>
+              </div>
+            ) : (
+              <Table striped bordered hover responsive className="mb-0">
+                <thead>
+                  <tr>
+                    <th>ວັນທີ</th>
+                    <th>ລະຫັດສິນຄ້າ</th>
+                    <th>ຊື່ສິນຄ້າ</th>
+                    <th>ຫົວໜ່ວຍ</th>
+                    <th>ຈຳນວນທີ່ເຫລືອມື້ກ່ອນ</th>
+                    <th>ຂາຍໄປແລ້ວ</th>
+                    <th>ຍັງເຫຼືອ</th>
+                    <th>ເຕີມໄດ້</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.map((row, rowIndex) => (
+                    <tr key={rowIndex}>
+                      <td>{new Date(row.doc_date).toLocaleDateString('en-GB')}</td>
+                      <td>{row.item_code}</td>
+                      <td>{row.item_name}</td>
+                      <td>{row.unit_code}</td>
+                      <td>{Math.floor(row.balance_qty_start || 0)}</td>
+                      <td>{Math.floor(row.sale_qty)}</td>
+                      <td>{Math.floor(row.balance_qty)}</td>
+                      <td>{Math.floor(row.balance_qty_compare || 0)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            )}
+          </div>
+          
+          {loading && offset > 0 && (
+            <div className="loading-indicator">
+              <p>ກຳລັງໂຫຼດຂໍມູນເພີ່ມເຕີມ...</p>
+            </div>
+          )}
+          
+          {!hasMore && data.length > 0 && (
+            <div className="loading-indicator">
+              <p>ບໍ່ມີຂໍມູນເພີ່ມເຕີມ.</p>
+            </div>
+          )}
+        </div>
       </Container>
     </div>
   );
