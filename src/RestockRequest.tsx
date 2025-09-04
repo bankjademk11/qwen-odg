@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Container, Row, Col, Table, Button, Form } from 'react-bootstrap';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import NavigationBar from './NavigationBar';
 
@@ -39,8 +39,9 @@ function RestockRequest() {
   const loadingMoreRef = useRef<boolean>(false);
   const scrollableContainerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const user = JSON.parse(localStorage.getItem('loggedInUser') || '{}');
   const creatorCode = user.code || null;
 
   const getTodayDate = () => {
@@ -55,6 +56,15 @@ function RestockRequest() {
   useEffect(() => {
     setSelectedDate(getTodayDate());
   }, []);
+
+  // Parse URL parameters
+  useEffect(() => {
+    const queryParams = new URLSearchParams(location.search);
+    const sourceWarehouseParam = queryParams.get('sourceWarehouse');
+    if (sourceWarehouseParam) {
+      setSourceWarehouse(sourceWarehouseParam);
+    }
+  }, [location.search]);
 
   // Fetch source and destination warehouses on component mount
   useEffect(() => {
@@ -74,16 +84,36 @@ function RestockRequest() {
         setter([]);
       }
     };
+    // Both source and destination warehouses should use the same endpoint to show all warehouses
     fetchWarehouses('http://localhost:8004/api/warehouses', setSourceWarehouses);
-    fetchWarehouses('http://localhost:8004/api/destination-warehouses', setDestinationWarehouses);
+    fetchWarehouses('http://localhost:8004/api/warehouses', setDestinationWarehouses);
   }, []);
 
-  // Auto-select source warehouse 1301 when warehouses are loaded
+  // Auto-select source warehouse based on user's warehouse when warehouses are loaded
   useEffect(() => {
     if (sourceWarehouses.length > 0 && !sourceWarehouse) {
-      const warehouse1301 = sourceWarehouses.find(wh => wh.code === '1301');
-      if (warehouse1301) {
-        setSourceWarehouse('1301');
+      // Get user's warehouse code
+      const loggedInUser = localStorage.getItem('loggedInUser');
+      let userWarehouseCode = '1301'; // Default
+      if (loggedInUser) {
+        try {
+          const userData = JSON.parse(loggedInUser);
+          userWarehouseCode = userData.ic_wht || '1301';
+        } catch (e) {
+          console.error("Failed to parse user data", e);
+        }
+      }
+      
+      // Select user's warehouse if it exists in the list
+      const userWarehouse = sourceWarehouses.find(wh => wh.code === userWarehouseCode);
+      if (userWarehouse) {
+        setSourceWarehouse(userWarehouseCode);
+      } else {
+        // Fallback to warehouse 1301 if user's warehouse not found
+        const warehouse1301 = sourceWarehouses.find(wh => wh.code === '1301');
+        if (warehouse1301) {
+          setSourceWarehouse('1301');
+        }
       }
     }
   }, [sourceWarehouses, sourceWarehouse]);
@@ -169,9 +199,22 @@ function RestockRequest() {
     setError(null);
 
     try {
+      // Get user's warehouse code for comparison data
+      const loggedInUser = localStorage.getItem('loggedInUser');
+      let userWarehouseCode = '1301'; // Default
+      if (loggedInUser) {
+        try {
+          const userData = JSON.parse(loggedInUser);
+          userWarehouseCode = userData.ic_wht || '1301';
+        } catch (e) {
+          console.error("Failed to parse user data", e);
+        }
+      }
+
       const dateParam = date ? `&doc_date=${date}` : '';
       const locationParam = whCode ? `&wh_code=${whCode}` : '';
-      const response = await fetch(`http://localhost:8004/api/analysis-data?limit=${ITEMS_PER_LOAD}&offset=${currentOffset}${dateParam}${locationParam}`);
+      const userWarehouseParam = `&user_wh_code=${userWarehouseCode}`;
+      const response = await fetch(`http://localhost:8004/api/analysis-data?limit=${ITEMS_PER_LOAD}&offset=${currentOffset}${dateParam}${locationParam}${userWarehouseParam}`);
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const result = await response.json();
       const sortedData = result.sort((a: any, b: any) => a.balance_qty - b.qty);
@@ -404,12 +447,14 @@ function RestockRequest() {
                 <Table striped bordered hover responsive>
                   <thead>
                     <tr>
+                      <th>ວັນທີ</th>
                       <th>ລະຫັດສິນຄ້າ</th>
                       <th>ຊື່ສິນຄ້າ</th>
+                      <th>ຫົວໜ່ວຍ</th>
                       <th>ຈຳນວນທີ່ເຫລືອມື້ກ່ອນ</th>
-                      <th>ຄົງເຫຼືອ</th>
-                      <th>ສາງຕົ້ນທາງ</th>
                       <th>ຂາຍໄປແລ້ວ</th>
+                      <th>ຍັງເຫຼືອ</th>
+                      <th>ເຕີມໄດ້</th>
                       <th>ຈຳນວນທີ່ຈະເບີກ</th>
                       <th>ເພີ່ມ</th>
                     </tr>
@@ -417,12 +462,14 @@ function RestockRequest() {
                   <tbody>
                     {data.map((row, rowIndex) => (
                       <tr key={rowIndex}>
+                        <td>{new Date(row.doc_date).toLocaleDateString('en-GB')}</td>
                         <td>{row.item_code}</td>
                         <td>{row.item_name}</td>
+                        <td>{row.unit_code}</td>
                         <td>{Math.floor(row.balance_qty_start || 0)}</td>
-                        <td>{Math.floor(row.balance_qty)}</td>
-                        <td>{Math.floor(row.balance_qty_1302)}</td>
                         <td>{Math.floor(row.sale_qty)}</td>
+                        <td>{Math.floor(row.balance_qty)}</td>
+                        <td>{Math.floor(row.balance_qty_compare || 0)}</td>
                         <td>
                           <Form.Control
                             type="number"

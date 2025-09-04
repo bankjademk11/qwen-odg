@@ -160,6 +160,8 @@ async def get_transactions():
 @app.get("/api/analysis-data")
 async def get_analysis_data(
     doc_date: Optional[str] = None,
+    wh_code: Optional[str] = None,
+    user_wh_code: Optional[str] = None,
     limit: int = 20,
     offset: int = 0
 ):
@@ -175,6 +177,12 @@ async def get_analysis_data(
         current_date = f"'{doc_date}'" if doc_date else 'CURRENT_DATE'
         previous_date = f"'{doc_date}'::date - 1" if doc_date else 'CURRENT_DATE - 1'
         
+        # Use user's warehouse or default to '1301' for main data
+        user_warehouse = user_wh_code if user_wh_code else '1301'
+        
+        # Use selected warehouse for comparison or default to '1302'
+        compare_warehouse = wh_code if wh_code else '1302'
+        
         # Check if there are sales for the date
         sales_check_query = f"SELECT 1 FROM ic_trans_detail WHERE doc_date = {current_date} LIMIT 1"
         cursor.execute(sales_check_query)
@@ -186,27 +194,46 @@ async def get_analysis_data(
         query = f"""
         WITH StockBalances AS (
             SELECT ic_code, ic_name, ic_unit_code, warehouse, balance_qty AS balance_qty_start
-            FROM sml_ic_function_stock_balance_warehouse_location({previous_date}, '', '1301', '130101')
+            FROM sml_ic_function_stock_balance_warehouse_location({previous_date}, '', %s, %s)
             WHERE balance_qty > 0
         ),
         SalesData AS (
             SELECT item_code, SUM(qty) AS sale_qty
             FROM ic_trans_detail
-            WHERE trans_flag IN (44) AND doc_date = {current_date} AND wh_code = '1301'
+            WHERE trans_flag IN (44) AND doc_date = {current_date} AND wh_code = %s
             GROUP BY item_code
         )
         SELECT
             {current_date} as doc_date, a.ic_code as item_code, a.ic_name as item_name, a.ic_unit_code as unit_code,
             round(a.balance_qty_start, 2) as balance_qty_start, COALESCE(b.sale_qty, 0) AS sale_qty,
-            (SELECT round(balance_qty, 2) FROM sml_ic_function_stock_balance_warehouse_location({current_date}, a.ic_code, a.warehouse, '130101')) AS balance_qty,
-            (SELECT COALESCE(round(balance_qty, 2), 0) FROM sml_ic_function_stock_balance_warehouse_location({current_date}, a.ic_code, '1302', '130201')) AS balance_qty_1302
+            (SELECT round(balance_qty, 2) FROM sml_ic_function_stock_balance_warehouse_location({current_date}, a.ic_code, %s, %s)) AS balance_qty,
+            (SELECT COALESCE(round(balance_qty, 2), 0) FROM sml_ic_function_stock_balance_warehouse_location({current_date}, a.ic_code, %s, %s)) AS balance_qty_compare
         FROM StockBalances a
         LEFT JOIN SalesData b ON a.ic_code = b.item_code
         ORDER BY a.ic_code ASC
         LIMIT %s OFFSET %s
         """
         
-        cursor.execute(query, (limit, offset))
+        # Parameters for the query:
+        # 1. user_warehouse for StockBalances CTE
+        # 2. location code for user warehouse
+        # 3. user_warehouse for SalesData WHERE clause
+        # 4. user_warehouse for balance_qty subquery
+        # 5. location code for user warehouse
+        # 6. compare_warehouse for balance_qty_compare subquery
+        # 7. location code for compare warehouse
+        # 8. limit
+        # 9. offset
+        
+        user_location_code = user_warehouse + '01' if len(user_warehouse) >= 4 else '130101'
+        compare_location_code = compare_warehouse + '01' if len(compare_warehouse) >= 4 else '130101'
+        cursor.execute(query, (
+            user_warehouse, user_location_code,
+            user_warehouse,
+            user_warehouse, user_location_code,
+            compare_warehouse, compare_location_code,
+            limit, offset
+        ))
         results = cursor.fetchall()
         
         columns = [desc[0] for desc in cursor.description]

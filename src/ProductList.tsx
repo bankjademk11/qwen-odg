@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Container, Table, Form, Row, Col } from 'react-bootstrap';
+import { Container, Table, Form, Row, Col, Button } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import NavigationBar from './NavigationBar';
+import { Link } from 'react-router-dom';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+import './ProductList.css';
 
 const ITEMS_PER_LOAD = 20;
 
@@ -33,9 +37,22 @@ const ProductList: React.FC = () => {
     setError(null);
 
     try {
+      // Get user's warehouse code
+      const user = localStorage.getItem('loggedInUser');
+      let userWarehouseCode = '1301'; // Default
+      if (user) {
+        try {
+          const userData = JSON.parse(user);
+          userWarehouseCode = userData.ic_wht || '1301';
+        } catch (e) {
+          console.error("Failed to parse user data", e);
+        }
+      }
+
       const dateParam = date ? `&doc_date=${date}` : '';
       const warehouseParam = whCode ? `&wh_code=${whCode}` : '';
-      const response = await fetch(`http://localhost:8004/api/analysis-data?limit=${ITEMS_PER_LOAD}&offset=${currentOffset}${dateParam}${warehouseParam}`);
+      const userWarehouseParam = `&user_wh_code=${userWarehouseCode}`;
+      const response = await fetch(`http://localhost:8004/api/analysis-data?limit=${ITEMS_PER_LOAD}&offset=${currentOffset}${dateParam}${warehouseParam}${userWarehouseParam}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -83,12 +100,31 @@ const ProductList: React.FC = () => {
     fetchWarehouses();
   }, []);
 
-  // Auto-select warehouse 1301 when warehouses are loaded
+  // Auto-select user's warehouse when warehouses are loaded
   useEffect(() => {
     if (warehouses.length > 0 && !selectedWarehouse) {
-      const warehouse1301 = warehouses.find(wh => wh.code === '1301');
-      if (warehouse1301) {
-        setSelectedWarehouse('1301');
+      // Get user's warehouse code
+      const user = localStorage.getItem('loggedInUser');
+      let userWarehouseCode = '1301'; // Default
+      if (user) {
+        try {
+          const userData = JSON.parse(user);
+          userWarehouseCode = userData.ic_wht || '1301';
+        } catch (e) {
+          console.error("Failed to parse user data", e);
+        }
+      }
+      
+      // Select user's warehouse if it exists in the list
+      const userWarehouse = warehouses.find(wh => wh.code === userWarehouseCode);
+      if (userWarehouse) {
+        setSelectedWarehouse(userWarehouseCode);
+      } else {
+        // Fallback to warehouse 1301 if user's warehouse not found
+        const warehouse1301 = warehouses.find(wh => wh.code === '1301');
+        if (warehouse1301) {
+          setSelectedWarehouse('1301');
+        }
       }
     }
   }, [warehouses, selectedWarehouse]);
@@ -151,23 +187,26 @@ const ProductList: React.FC = () => {
       <NavigationBar />
       <Container className="mt-4">
         <h2>ການເຄື່ອນໄຫວສິນຄ້າ</h2>
-        <Row className="mb-3">
-          <Col md={6}>
-            <Form.Group controlId="formDate" className="mb-3">
-              <Form.Label>ເລືອກວັນທີ:</Form.Label>
-              <Form.Control
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
+        <Row className="mb-3 filter-row justify-content-between">
+          <Col md={3}>
+            <Form.Group controlId="formDate" className="mb-1">
+              <Form.Label className="mb-1">ເລືອກວັນທີ:</Form.Label>
+              <DatePicker
+                selected={selectedDate ? new Date(selectedDate) : null}
+                onChange={(date: Date | null) => setSelectedDate(date ? date.toISOString().split('T')[0] : '')}
+                dateFormat="yyyy-MM-dd"
+                className="form-control form-control-sm"
+                placeholderText="ກະລຸນາເລືອກວັນທີ"
               />
             </Form.Group>
           </Col>
-          <Col md={6}>
-            <Form.Group controlId="warehouseFilter" className="mb-3">
-              <Form.Label>ຄັງສິນຄ້າ:</Form.Label>
+          <Col md={3}>
+            <Form.Group controlId="warehouseFilter" className="mb-1">
+              <Form.Label className="mb-1">ຄັງສິນຄ້າ:</Form.Label>
               <Form.Select
                 value={selectedWarehouse}
                 onChange={(e) => setSelectedWarehouse(e.target.value)}
+                className="form-control form-control-sm"
               >
                 <option value="">ທັງຫມົດ</option>
                 {warehouses.map(wh => (
@@ -175,6 +214,13 @@ const ProductList: React.FC = () => {
                 ))}
               </Form.Select>
             </Form.Group>
+          </Col>
+        </Row>
+        <Row className="mb-3">
+          <Col>
+            <Link to={`/restock?sourceWarehouse=${selectedWarehouse}`}>
+              {/* <Button variant="primary">ໄປທີ່ໜ້າ Restock ດ້ວຍຄັງທີ່ເລືອກ</Button> */}
+            </Link>
           </Col>
         </Row>
         {data.length === 0 && !loading ? (
@@ -186,7 +232,7 @@ const ProductList: React.FC = () => {
                 <th>ວັນທີ</th>
                 <th>ລະຫັດສິນຄ້າ</th>
                 <th>ຊື່ສິນຄ້າ</th>
-                <th>ປະເພດສິນຄ້າ</th>
+                <th>ຫົວໜ່ວຍ</th>
                 <th>ຈຳນວນທີ່ເຫລືອມື້ກ່ອນ</th>
                 <th>ຂາຍໄປແລ້ວ</th>
                 <th>ຍັງເຫຼືອ</th>
@@ -203,7 +249,7 @@ const ProductList: React.FC = () => {
                   <td>{Math.floor(row.balance_qty_start || 0)}</td>
                   <td>{Math.floor(row.sale_qty)}</td>
                   <td>{Math.floor(row.balance_qty)}</td>
-                  <td>{Math.floor(row.balance_qty_1302)}</td>
+                  <td>{Math.floor(row.balance_qty_compare || 0)}</td>
                 </tr>
               ))}
             </tbody>

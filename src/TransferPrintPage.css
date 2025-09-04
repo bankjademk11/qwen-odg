@@ -1,18 +1,93 @@
+/* General layout for screen view */
 .print-container {
     width: 100%;
     max-width: 800px; /* A standard A4-like width */
     margin: 0 auto;
-    padding: 20px;
+    padding: 10px;
 }
 
-/* Styles for elements that should NOT be printed */
+/* Header styles */
+.bill-header .company-logo {
+    max-width: 120px;
+    height: auto;
+}
+
+.bill-header .company-name {
+    font-size: 1.1em;
+    font-weight: bold;
+    margin-bottom: 2px;
+}
+
+.bill-header .company-address,
+.bill-header .company-contact {
+    font-size: 0.65em;
+    margin-bottom: 1px;
+}
+
+.header-divider {
+    border-top: 1px solid #000;
+    margin-top: 8px;
+    padding-top: 3px;
+}
+
+.bill-header h2 {
+    font-size: 1.4em;
+    margin-top: 10px;
+}
+
+/* Table styles */
+.table {
+    font-size: 0.75em;
+    width: 100%;
+}
+
+.table th, .table td {
+    padding: 0.2rem 0.4rem;
+}
+
+/* Ensure empty rows have a consistent height */
+.table tbody tr td:empty::after {
+    content: "\00a0"; /* Non-breaking space */
+}
+
+/* Meta and Warehouse Info */
+.transfer-meta-info,
+.warehouse-info {
+    font-size: 0.7em;
+    line-height: 1.4;
+}
+
+.warehouse-info .warehouse-name {
+    font-weight: 500; /* Slightly bolder */
+}
+
+/* Footer styles */
+.footer-divider {
+    border-top: 1px solid #eee;
+    margin-top: 1rem;
+}
+
+.bill-footer p {
+    font-size: 0.8em;
+    margin-bottom: 0;
+}
+
+/* --- PRINT-SPECIFIC STYLES --- */
 @media print {
+    @page {
+        size: A4;
+        margin: 1cm; /* Browser default is often ~1 inch, this is smaller */
+    }
+
     .no-print {
         display: none !important;
     }
 
-    body {
+    body, html {
+        margin: 0;
+        padding: 0;
         background-color: #fff;
+        -webkit-print-color-adjust: exact;
     }
 
     .print-container {
@@ -22,5 +97,54 @@
         padding: 0;
         border: none;
         box-shadow: none;
+    }
+
+    .print-card {
+        display: flex;
+        flex-direction: column;
+        height: 100%; /* Fill the available page height */
+        padding: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+
+    .bill-main {
+        flex-grow: 1; /* This makes the main content take up available space */
+    }
+
+    /* Set font sizes using points for better print control */
+    .table {
+        font-size: 9pt;
+    }
+
+    .bill-header .company-name {
+        font-size: 10pt;
+    }
+
+    .bill-header .company-address,
+    .bill-header .company-contact {
+        font-size: 7pt;
+    }
+
+    .bill-header h2 {
+        font-size: 12pt;
+    }
+
+    .table th, .table td {
+        padding: 2px 4px;
+    }
+
+    .transfer-meta-info,
+    .warehouse-info {
+        font-size: 7pt;
+        line-height: 1.5;
+    }
+
+    .bill-footer {
+        margin-top: auto; /* Pushes footer to the bottom in flex container */
+    }
+
+    .bill-footer p {
+        font-size: 8pt;
     }
 }

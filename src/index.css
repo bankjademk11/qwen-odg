@@ -1,5 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Lao:wght@100..900&display=swap');
 
-body {
-  font-family: "Noto Sans Lao", sans-serif;
+html, body, * { /* Apply to html, body, and all elements */
+  font-family: "Noto Sans Lao", sans-serif !important; /* Use !important for stronger override */
 }

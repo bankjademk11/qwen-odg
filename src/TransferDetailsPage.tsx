@@ -118,10 +118,8 @@ const TransferDetailsPage: React.FC = () => {
             <tr>
               <th>ລະຫັດສິນຄ້າ</th>
               <th>ຊື່ສິນຄ້າ</th>
-              <th>ປະເພດສິນຄ້າ</th>
+              <th>ຫົວໜ່ວຍ</th>
               <th>ຈຳນວນ</th>
-              <th>ຕົ້ນທາງ</th>
-              <th>ປາຍທາງ</th>
             </tr>
           </thead>
           <tbody>
@@ -131,8 +129,6 @@ const TransferDetailsPage: React.FC = () => {
                 <td>{item.item_name}</td>
                 <td>{item.unit_code}</td>
                 <td>{Math.round(parseFloat(item.qty))}</td>
-                <td>{item.wh_code} {item.shelf_code}</td>
-                <td>{item.wh_code_2} {item.shelf_code_2}</td>
               </tr>
             ))}
           </tbody>
