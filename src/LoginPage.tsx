@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Container, Form, Button, Card, Alert } from 'react-bootstrap';
+import { Form, Button, Alert } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
+import './LoginPage.css'; // Import the new styles
 
 function LoginPage() {
   const [code, setCode] = useState('');
@@ -27,46 +28,49 @@ function LoginPage() {
         localStorage.setItem('loggedInUser', JSON.stringify(data.user));
         navigate('/'); // Redirect to home page on successful login
       } else {
-        setError(data.message || 'Login failed');
+        setError(data.message || 'ເຂົ້າສູ່ລະບົບບໍ່ສຳເລັດ');
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError('Network error or server is unreachable.');
+      setError('ເຄືອຂ່າຍຜິດພາດ ຫຼືເຊີບເວີບໍ່ສາມາດເຂົ້າເຖິງໄດ້.');
     }
   };
 
   return (
-    <Container className="d-flex justify-content-center align-items-center" style={{ minHeight: '100vh' }}>
-      <Card style={{ width: '25rem' }}>
-        <Card.Body>
-          <h2 className="text-center mb-4">Login</h2>
+    <div className="login-page-container">
+      <div className="login-box">
+        <img src="/image/logo.png" alt="Company Logo" className="login-logo" />
+        <div className="login-form">
+          <h2 className="text-center">ຍິນດີຕ້ອນຮັບ</h2>
           {error && <Alert variant="danger">{error}</Alert>}
           <Form onSubmit={handleSubmit}>
             <Form.Group id="code" className="mb-3">
-              <Form.Label>User Code</Form.Label>
+              <Form.Label>ລະຫັດຜູ້ໃຊ້</Form.Label>
               <Form.Control
                 type="text"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
+                placeholder="ປ້ອນລະຫັດຜູ້ໃຊ້ຂອງທ່ານ"
                 required
               />
             </Form.Group>
             <Form.Group id="password" className="mb-3">
-              <Form.Label>Password</Form.Label>
+              <Form.Label>ລະຫັດຜ່ານ</Form.Label>
               <Form.Control
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                placeholder="ປ້ອນລະຫັດຜ່ານຂອງທ່ານ"
                 required
               />
             </Form.Group>
-            <Button className="w-100" type="submit">
-              Login
+            <Button className="w-100" type="submit" variant="primary">
+              ເຂົ້າສູ່ລະບົບ
             </Button>
           </Form>
-        </Card.Body>
-      </Card>
-    </Container>
+        </div>
+      </div>
+    </div>
   );
 }
 

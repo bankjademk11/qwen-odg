@@ -237,7 +237,7 @@ const ProductList: React.FC = () => {
           
           <div className="restock-button-container">
             <Link to={`/restock?sourceWarehouse=${selectedWarehouse}`}>
-              <Button variant="primary">ໄປທີ່ໜ້າ Restock ດ້ວຍຄັງທີ່ເລືອກ</Button>
+              {/* <Button variant="primary">ໄປທີ່ໜ້າ Restock ດ້ວຍຄັງທີ່ເລືອກ</Button> */}
             </Link>
           </div>
           

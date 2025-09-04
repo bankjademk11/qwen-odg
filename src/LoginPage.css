@@ -1,0 +1,78 @@
+/* LoginPage.css */
+
+@keyframes drop-in {
+  from {
+    transform: translateY(-50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.login-page-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: #f0f2f5; /* A soft, neutral background */
+  padding: 20px;
+}
+
+.login-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 400px; /* Control the max width of the login box */
+}
+
+.login-logo {
+  width: 150px; /* Adjust size as needed */
+  height: auto;
+  margin-bottom: 2rem;
+  animation: drop-in 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.login-form {
+  width: 100%;
+  background: #fff;
+  padding: 2.5rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.login-form h2 {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 1.5rem;
+}
+
+/* Overriding React Bootstrap styles */
+.login-form .form-control {
+  height: 50px;
+  border-radius: 6px;
+  border: 1px solid #ced4da;
+  padding: 0 15px;
+}
+
+.login-form .form-control:focus {
+  border-color: #80bdff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.login-form .btn-primary {
+  background-color: #007bff;
+  border-color: #007bff;
+  padding: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 6px;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.login-form .btn-primary:hover {
+  background-color: #0056b3;
+  border-color: #0056b3;
+}
