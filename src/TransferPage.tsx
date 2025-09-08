@@ -134,7 +134,7 @@ const TransferPage: React.FC = () => {
             <p>ກຳລັງໂຫຼດຂໍ້ມູນຂອງວັນທີ {selectedDate}...</p>
           </div>
         ) : error ? (
-          <p style={{ color: 'red' }}>เกิดข้อผิดพลาด: {error}</p>
+          <p style={{ color: 'red' }}>เกิดຂ้อผิดพลาด: {error}</p>
         ) : (
           <Table striped bordered hover responsive className="mt-3">
             <thead>

@@ -218,7 +218,7 @@ const EditTransferPage: React.FC = () => {
       navigate('/transfers');
     } catch (e: any) {
       console.error('Error saving transfer edit:', e);
-      alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + (e.message || 'Unknown error'));
+      alert('เกิดຂ้อผิดพลาดในการบันທึกຂ้อมูล: ' + (e.message || 'Unknown error'));
     } finally {
       setSaving(false);
     }
