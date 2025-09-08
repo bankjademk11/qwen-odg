@@ -10,6 +10,7 @@ import TransferDetailsPage from './TransferDetailsPage';
 import TransferPrintPage from './TransferPrintPage'; // Import the new page
 import EditTransferPage from './EditTransferPage'; // Import the new edit page
 import LoginPage from './LoginPage';
+import POSPage from './POSPage'; // <--- Import POS Page
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import './index.css';
@@ -90,6 +91,15 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           element={
             <ProtectedRoute>
               <TransferPrintPage />
+            </ProtectedRoute>
+          }
+        />
+        {/* Add the new POS route */}
+        <Route
+          path="/pos"
+          element={
+            <ProtectedRoute>
+              <POSPage />
             </ProtectedRoute>
           }
         />

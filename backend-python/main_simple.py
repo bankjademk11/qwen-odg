@@ -25,7 +25,7 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5175", "http://localhost:5176", "http://localhost:3000"],  # Frontend URLs
+    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:5176", "http://localhost:3000"],  # Frontend URLs
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -695,6 +695,105 @@ async def get_destination_locations(warehouse: str):
     except Exception as e:
         print(f"Error fetching destination locations for warehouse {warehouse}: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
+    finally:
+        if connection:
+            connection_pool.putconn(connection)
+
+@app.get("/api/units", response_model=List[str])
+async def get_units():
+    """
+    API endpoint to get all unique unit codes (categories).
+    """
+    if not connection_pool:
+        print("Database not available, returning mock units")
+        return ["PCS", "BOX", "SET"]
+    
+    connection = None
+    try:
+        connection = connection_pool.getconn()
+        cursor = connection.cursor()
+        
+        # Using unit_code_1 from ic_master as it's the master table for items
+        query = """
+        SELECT DISTINCT unit_code_1 
+        FROM ic_master 
+        WHERE unit_code_1 IS NOT NULL AND unit_code_1 <> ''
+        ORDER BY unit_code_1 ASC;
+        """
+        cursor.execute(query)
+        results = cursor.fetchall()
+        
+        # The result from fetchall is a list of tuples, e.g., [('PCS',), ('BOX',)]
+        return [row[0] for row in results]
+        
+    except Exception as e:
+        print(f"Error fetching units: {e}")
+        return ["PCS", "BOX", "SET"] # Fallback mock data
+    finally:
+        if connection:
+            connection_pool.putconn(connection)
+
+@app.get("/api/pos-products")
+async def get_pos_products(limit: int = 30, offset: int = 0):
+    """
+    API endpoint to get products for POS with pagination.
+    This endpoint fetches product data specifically for the POS page.
+    """
+    if not connection_pool:
+        # Return mock data when database is not available
+        print("Database not available, returning mock data for POS")
+        mock_products = []
+        for i in range(min(limit, 20)):  # Return at most 20 mock products
+            mock_products.append({
+                "item_code": f"ITEM{i+offset:03d}",
+                "item_name": f"สินค้า {i+offset}",
+                "unit_code": "PCS",
+                "price": 100.0 + (i * 10),
+                "stock_quantity": 50 - i,
+                "image": "/image/exam.jpg"
+            })
+        return mock_products
+    
+    connection = None
+    try:
+        connection = connection_pool.getconn()
+        cursor = connection.cursor()
+        
+        # Query to fetch products for POS - using the same approach as analysis-data endpoint
+        query = """
+        SELECT 
+            ic_code AS item_code,
+            ic_name AS item_name,
+            ic_unit_code AS unit_code,
+            0 AS price,  -- We'll set a default price of 0 for now
+            balance_qty AS stock_quantity,
+            '/image/exam.jpg' AS image
+        FROM sml_ic_function_stock_balance_warehouse_location(CURRENT_DATE, '', '1301', '')
+        WHERE balance_qty > 0
+        ORDER BY ic_code
+        LIMIT %s OFFSET %s
+        """
+        cursor.execute(query, (limit, offset))
+        results = cursor.fetchall()
+        
+        # Convert to list of dictionaries
+        columns = [desc[0] for desc in cursor.description]
+        return [dict(zip(columns, row)) for row in results]
+        
+    except Exception as e:
+        print(f"Error fetching POS products: {e}")
+        # Return mock data when database query fails
+        mock_products = []
+        for i in range(min(limit, 20)):  # Return at most 20 mock products
+            mock_products.append({
+                "item_code": f"ITEM{i+offset:03d}",
+                "item_name": f"สินค้า {i+offset}",
+                "unit_code": "PCS",
+                "price": 100.0 + (i * 10),
+                "stock_quantity": 50 - i,
+                "image": "/image/exam.jpg"
+            })
+        return mock_products
     finally:
         if connection:
             connection_pool.putconn(connection)

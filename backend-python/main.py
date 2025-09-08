@@ -42,7 +42,7 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5176", "http://localhost:3000", "http://localhost:5174"],  # Frontend URLs
+    allow_origins=["http://localhost:5173", "http://localhost:5176", "http://localhost:3000", "http://localhost:5174"],  # Frontend URLs
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -134,6 +134,94 @@ async def login(request: LoginRequest, db: asyncpg.Connection = Depends(get_db))
         print(f"Error during login: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
+@app.get("/api/pos-products")
+async def get_pos_products(limit: int = 30, offset: int = 0):
+    """
+    API endpoint to get products for POS with pagination.
+    Note: This query makes assumptions about table (ic_master) and column names (sale_price_1).
+    This should be verified against the actual database schema.
+    """
+    global pool
+    
+    # If database is not available, return mock data
+    if not pool:
+        print("Database not available, returning mock data")
+        mock_products = []
+        for i in range(min(limit, 20)):  # Return at most 20 mock products
+            mock_products.append({
+                "item_code": f"ITEM{i+offset:03d}",
+                "item_name": f"Product {i+offset}",
+                "unit_code": "PCS",
+                "price": 100.0 + (i * 10),
+                "stock_quantity": 50 - i,
+                "image": "/image/exam.jpg"
+            })
+        return mock_products
+    
+    # If database is available, fetch real data
+    try:
+        async with pool.acquire() as connection:
+            query = """
+            SELECT 
+                item.code AS item_code, 
+                item.name_1 AS item_name, 
+                item.unit_code_1 AS unit_code,
+                item.sale_price_1 AS price,
+                COALESCE(stock.balance_qty, 0) AS stock_quantity,
+                '/image/exam.jpg' AS image -- Placeholder image as requested
+            FROM 
+                ic_master AS item
+            LEFT JOIN 
+                sml_ic_function_stock_balance_warehouse_location(CURRENT_DATE, item.code, '1301', '') AS stock 
+            ON 
+                item.code = stock.ic_code
+            WHERE 
+                item.active_status = 0 -- Assuming 0 means active
+            ORDER BY 
+                item.code ASC
+            LIMIT $1 OFFSET $2;
+            """
+            rows = await connection.fetch(query, limit, offset)
+            return [dict(row) for row in rows]
+    except Exception as e:
+        print(f"Error fetching products for POS: {e}")
+        # Return mock data when database query fails
+        mock_products = []
+        for i in range(min(limit, 20)):  # Return at most 20 mock products
+            mock_products.append({
+                "item_code": f"ITEM{i+offset:03d}",
+                "item_name": f"Product {i+offset}",
+                "unit_code": "PCS",
+                "price": 100.0 + (i * 10),
+                "stock_quantity": 50 - i,
+                "image": "/image/exam.jpg"
+            })
+        return mock_products
+
+@app.get("/api/units", response_model=List[str])
+async def get_units():
+    """
+    API endpoint to get all unique unit codes (categories).
+    """
+    global pool
+    if not pool:
+        print("Database not available, returning mock units")
+        return ["PCS", "BOX", "SET"]
+        
+    try:
+        async with pool.acquire() as connection:
+            query = """
+            SELECT DISTINCT unit_code_1 
+            FROM ic_master 
+            WHERE unit_code_1 IS NOT NULL AND unit_code_1 <> ''
+            ORDER BY unit_code_1 ASC;
+            """
+            rows = await connection.fetch(query)
+            return [row['unit_code_1'] for row in rows]
+    except Exception as e:
+        print(f"Error fetching units: {e}")
+        return ["PCS", "BOX", "SET"] # Fallback mock data
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8004)
