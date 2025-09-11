@@ -334,6 +334,104 @@ def api_pos_billing():
         if conn:
             conn.close()
 
+import json
+import time
+
+# --- Bill Parking APIs (Local File Storage) ---
+PARKED_BILLS_FILE = 'parked_bills.json'
+
+def _read_parked_bills():
+    """Helper function to read parked bills from the JSON file."""
+    try:
+        if os.path.exists(PARKED_BILLS_FILE):
+            with open(PARKED_BILLS_FILE, 'r') as f:
+                # Handle empty file case
+                content = f.read()
+                if not content:
+                    return []
+                return json.loads(content)
+        return []
+    except (IOError, json.JSONDecodeError):
+        return []
+
+def _write_parked_bills(bills):
+    """Helper function to write parked bills to the JSON file."""
+    with open(PARKED_BILLS_FILE, 'w') as f:
+        json.dump(bills, f, indent=4)
+
+@app.route('/park-bill', methods=['POST'])
+def park_bill():
+    """Park a bill for later retrieval."""
+    data = request.get_json()
+    reference_name = data.get('reference_name')
+    cart_data = data.get('cart_data')
+    customer_code = data.get('customer_code')
+    customer_search = data.get('customer_search') # Get the customer display name
+
+    if not reference_name or not cart_data:
+        return jsonify({'success': False, 'error': 'Reference name and cart data are required'}), 400
+
+    bills = _read_parked_bills()
+    
+    # Generate a unique ID (simple timestamp-based)
+    new_id = int(time.time() * 1000)
+
+    new_bill = {
+        'id': new_id,
+        'reference_name': reference_name,
+        'cart_data': cart_data,
+        'customer_code': customer_code,
+        'customer_search': customer_search, # Save display name
+        'created_at': time.strftime('%Y-%m-%d %H:%M:%S')
+    }
+    
+    bills.append(new_bill)
+    _write_parked_bills(bills)
+    
+    return jsonify({'success': True, 'message': 'Bill parked successfully'}), 201
+
+@app.route('/parked-bills', methods=['GET'])
+def get_parked_bills():
+    """Get a list of all parked bills."""
+    bills = _read_parked_bills()
+    # Sort by most recent first
+    sorted_bills = sorted(bills, key=lambda x: x.get('id', 0), reverse=True)
+    
+    # Prepare data for display
+    display_list = []
+    for bill in sorted_bills:
+        try:
+            created_time = time.strptime(bill['created_at'], '%Y-%m-%d %H:%M:%S')
+            time_str = time.strftime('%H:%M:%S', created_time)
+        except (ValueError, KeyError):
+            time_str = 'N/A'
+
+        display_list.append({
+            'id': bill['id'],
+            'reference_name': bill['reference_name'],
+            'time': time_str,
+            'cart_data': bill['cart_data'],
+            'customer_code': bill.get('customer_code'),
+            'customer_search': bill.get('customer_search')
+        })
+
+    return jsonify({'success': True, 'list': display_list}), 200
+
+@app.route('/parked-bills/<int:bill_id>', methods=['DELETE'])
+def delete_parked_bill(bill_id):
+    """Delete a parked bill after it has been recalled."""
+    bills = _read_parked_bills()
+    
+    bill_found = any(bill['id'] == bill_id for bill in bills)
+    if not bill_found:
+        return jsonify({'success': False, 'error': 'Bill not found'}), 404
+        
+    new_bills = [bill for bill in bills if bill['id'] != bill_id]
+    _write_parked_bills(new_bills)
+    
+    return jsonify({'success': True, 'message': 'Parked bill deleted'}), 200
+
+
 # The @app.before_request and @app.after_request for CORS have been removed 
 # to rely solely on the Flask-Cors extension, which is already configured.
 

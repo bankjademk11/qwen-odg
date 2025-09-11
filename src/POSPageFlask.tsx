@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Container, Row, Col, Card, Button, ListGroup, Form, Spinner, Alert, Nav } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, ListGroup, Form, Spinner, Alert, Nav, Modal } from 'react-bootstrap';
 import NavigationBar from './NavigationBar';
 import './POSPage.css';
 
@@ -74,6 +74,12 @@ const POSPageFlask = () => {
   const [paymentMethod, setPaymentMethod] = useState<string>('cash');
   const [customerSearch, setCustomerSearch] = useState('');
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
+
+  // State for bill parking
+  const [showParkModal, setShowParkModal] = useState(false);
+  const [showRecallModal, setShowRecallModal] = useState(false);
+  const [parkReferenceName, setParkReferenceName] = useState('');
+  const [parkedBills, setParkedBills] = useState<any[]>([]);
 
   const productGridRef = useRef<HTMLDivElement>(null);
   const categoryTabsRef = useRef<HTMLDivElement>(null);
@@ -337,7 +343,76 @@ const POSPageFlask = () => {
       return `${imageBaseUrl}${product.url_image}`;
     }
     // Fallback if no image is specified
-    return '/image/exam.jpg';
+    return product.image || '/image/exam.jpg';
+  };
+
+  // --- Bill Parking Handlers ---
+
+  const handleShowRecallModal = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/parked-bills');
+      const data = await response.json();
+      if (data.success) {
+        setParkedBills(data.list);
+        setShowRecallModal(true);
+      } else {
+        alert('Failed to fetch parked bills.');
+      }
+    } catch (error) {
+      console.error('Error fetching parked bills:', error);
+      alert('Error fetching parked bills.');
+    }
+  };
+
+  const handleParkBill = async () => {
+    if (!parkReferenceName) {
+      alert('Please enter a reference name for the bill.');
+      return;
+    }
+    try {
+      const response = await fetch('http://localhost:5000/park-bill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reference_name: parkReferenceName,
+          cart_data: cart,
+          customer_code: selectedCustomer,
+          customer_search: customerSearch,
+        }),
+      });
+      const result = await response.json();
+      if (result.success) {
+        alert('Bill parked successfully!');
+        setCart([]);
+        setSelectedCustomer('');
+        setCustomerSearch('');
+        setParkReferenceName('');
+        setShowParkModal(false);
+      } else {
+        alert(`Failed to park bill: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error parking bill:', error);
+      alert('Error parking bill.');
+    }
+  };
+
+  const handleRecallBill = async (bill: any) => {
+    // Set cart and customer from the parked bill
+    setCart(bill.cart_data || []);
+    setSelectedCustomer(bill.customer_code || '');
+    setCustomerSearch(bill.customer_search || '');
+
+    // Delete the parked bill from the server
+    try {
+      await fetch(`http://localhost:5000/parked-bills/${bill.id}`, {
+        method: 'DELETE',
+      });
+    } catch (error) {
+      console.error('Could not delete parked bill from server, but recalling locally.', error);
+    }
+    
+    setShowRecallModal(false);
   };
 
   return (
@@ -561,7 +636,23 @@ const POSPageFlask = () => {
                     <Button variant="primary" size="lg" disabled={cart.length === 0 || !selectedCustomer} onClick={processBilling}>
                       ຈ່າຍເງິນ
                     </Button>
-                    <Button variant="outline-danger" size="lg" onClick={() => setCart([])}>
+                    <Row>
+                      <Col>
+                        <Button variant="info" className="w-100" disabled={cart.length === 0} onClick={() => setShowParkModal(true)}>
+                          ພັກບິນ (Park Bill)
+                        </Button>
+                      </Col>
+                      <Col>
+                        <Button variant="secondary" className="w-100" onClick={handleShowRecallModal}>
+                          ເອີ້ນບິນ (Recall Bill)
+                        </Button>
+                      </Col>
+                    </Row>
+                    <Button variant="outline-danger" size="lg" onClick={() => {
+                      setCart([]);
+                      setSelectedCustomer('');
+                      setCustomerSearch('');
+                    }}>
                       ຍົກເລີກ
                     </Button>
                   </div>
@@ -571,6 +662,68 @@ const POSPageFlask = () => {
           </Col>
         </Row>
       </Container>
+
+      {/* --- Modals for Bill Parking --- */}
+
+      {/* Park Bill Modal */}
+      <Modal show={showParkModal} onHide={() => setShowParkModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>ພັກບິນ (Park Bill)</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form.Group>
+            <Form.Label>ຊື່ອ້າງອີງ (Reference Name)</Form.Label>
+            <Form.Control
+              type="text"
+              placeholder="ຕົວຢ່າງ: ລູກຄ້າເສື້ອແດງ, ໂຕະ 5"
+              value={parkReferenceName}
+              onChange={(e) => setParkReferenceName(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleParkBill()}
+            />
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowParkModal(false)}>
+            ຍົກເລີກ
+          </Button>
+          <Button variant="primary" onClick={handleParkBill}>
+            ຢືນຢັນການພັກບິນ
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Recall Bill Modal */}
+      <Modal show={showRecallModal} onHide={() => setShowRecallModal(false)} centered size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>ລາຍການບິນທີ່ພັກໄວ້ (Recall Bill)</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <ListGroup>
+            {parkedBills.length > 0 ? (
+              parkedBills.map(bill => (
+                <ListGroup.Item key={bill.id} action className="d-flex justify-content-between align-items-center">
+                  <div>
+                    <div className="fw-bold">{bill.reference_name}</div>
+                    <small className="text-muted">
+                      ເວລາ: {bill.time} | ລູກຄ້າ: {bill.customer_search || 'ບໍ່ມີ'} | {bill.cart_data.length} ລາຍການ
+                    </small>
+                  </div>
+                  <Button variant="success" onClick={() => handleRecallBill(bill)}>
+                    ເອີ້ນບິນນີ້
+                  </Button>
+                </ListGroup.Item>
+              ))
+            ) : (
+              <p className="text-center text-muted">ບໍ່ມີບິນທີ່ພັກໄວ້</p>
+            )}
+          </ListGroup>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowRecallModal(false)}>
+            ປິດ
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </>
   );
 };
