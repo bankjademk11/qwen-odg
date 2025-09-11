@@ -26,11 +26,11 @@ interface Category {
   count: number;
 }
 
-const mockCustomers = [
-  { code: 'CUST-001', name: 'ລູກຄ້າທົ່ວໄປ (General Customer)' },
-  { code: 'CUST-002', name: 'ທ່ານ ສົມຊາຍ (Mr. Somchai)' },
-  { code: 'CUST-003', name: 'ບໍລິສັດ ABC ຈຳກັດ (ABC Co., Ltd.)' },
-];
+// Interface for Customer
+interface Customer {
+  code: string;
+  name: string;
+}
 
 const POSPageFlask = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -65,11 +65,15 @@ const POSPageFlask = () => {
   const [categories, setCategories] = useState<Category[]>([{name: 'All', count: 0}]);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<string>('');
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [locations, setLocations] = useState<any[]>([]);
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>('1301');
   const [selectedLocation, setSelectedLocation] = useState<string>('01');
+  const [paymentMethod, setPaymentMethod] = useState<string>('cash');
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
 
   const productGridRef = useRef<HTMLDivElement>(null);
   const categoryTabsRef = useRef<HTMLDivElement>(null);
@@ -91,6 +95,24 @@ const POSPageFlask = () => {
     };
 
     fetchWarehouses();
+  }, []);
+
+  // Fetch customers
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/customer');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        setCustomers(data.list); // Assuming the API returns { list: [...] }
+      } catch (e: any) {
+        console.error("Failed to fetch customers:", e);
+      }
+    };
+
+    fetchCustomers();
   }, []);
 
   // Fetch locations when warehouse changes
@@ -265,6 +287,7 @@ const POSPageFlask = () => {
         doc_date: new Date().toISOString().split('T')[0],
         customer_code: selectedCustomer,
         total_amount: total,
+        payment_method: paymentMethod, // Add payment method
         items: cart.map(item => ({
           item_code: item.item_code,
           item_name: item.item_name,
@@ -443,17 +466,45 @@ const POSPageFlask = () => {
                 <h5 className="mb-0">ຂໍ້ມູນລູກຄ້າ</h5>
               </Card.Header>
               <Card.Body>
-                <Form.Select 
-                  value={selectedCustomer} 
-                  onChange={(e) => setSelectedCustomer(e.target.value)}
-                >
-                  <option value="">-- ເລືອກລູກຄ້າ --</option>
-                  {mockCustomers.map(customer => (
-                    <option key={customer.code} value={customer.code}>
-                      {customer.name}
-                    </option>
-                  ))}
-                </Form.Select>
+                <div className="customer-search-wrapper">
+                  <Form.Control
+                    type="text"
+                    placeholder="ຄົ້ນຫາດ້ວຍລະຫັດ ຫຼື ຊື່ລູກຄ້າ..."
+                    value={customerSearch}
+                    onChange={(e) => {
+                      setCustomerSearch(e.target.value);
+                      setIsCustomerDropdownOpen(true);
+                      if (e.target.value === '') {
+                        setSelectedCustomer(''); // Clear selection if search is cleared
+                      }
+                    }}
+                    onFocus={() => setIsCustomerDropdownOpen(true)}
+                    onBlur={() => setTimeout(() => setIsCustomerDropdownOpen(false), 200)} // Delay to allow click
+                  />
+                  {isCustomerDropdownOpen && (
+                    <div className="customer-search-results">
+                      {customers
+                        .filter(c => 
+                          c.name.toLowerCase().includes(customerSearch.toLowerCase()) || 
+                          c.code.toLowerCase().includes(customerSearch.toLowerCase())
+                        )
+                        .slice(0, 50) // Limit results to 50
+                        .map(customer => (
+                          <div
+                            key={customer.code}
+                            className="customer-search-item"
+                            onClick={() => {
+                              setSelectedCustomer(customer.code);
+                              setCustomerSearch(`${customer.name} (${customer.code})`);
+                              setIsCustomerDropdownOpen(false);
+                            }}
+                          >
+                            {customer.name} ({customer.code})
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
               </Card.Body>
             </Card>
 
@@ -488,6 +539,20 @@ const POSPageFlask = () => {
                     <span>ລວມທັງໝົດ:</span>
                     <span>{total.toLocaleString()} ₭</span>
                   </div>
+
+                  {/* Payment Method Selection */}
+                  <Form.Group className="my-3">
+                      <Form.Label className="fw-bold">ວິທີຊຳລະເງິນ:</Form.Label>
+                      <Form.Select 
+                        value={paymentMethod} 
+                        onChange={(e) => setPaymentMethod(e.target.value)}
+                      >
+                        <option value="cash">ເງິນສົດ (Cash)</option>
+                        <option value="transfer">ໂອນຈ່າຍ (Transfer)</option>
+                        <option value="card">ບັດເຄຣດິດ (Credit Card)</option>
+                      </Form.Select>
+                    </Form.Group>
+
                   <div className="d-grid gap-2 mt-3">
                     <Button variant="primary" size="lg" disabled={cart.length === 0 || !selectedCustomer} onClick={processBilling}>
                       ຈ່າຍເງິນ

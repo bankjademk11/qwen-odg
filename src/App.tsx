@@ -13,6 +13,7 @@ import TransferPrintPage from './TransferPrintPage';
 import AnalysisPage from './AnalysisPage';
 import POSPage from './POSPage';
 import POSPageFlask from './POSPageFlask';
+import HistoryPage from './HistoryPage';
 
 function App() {
   return (
@@ -63,6 +64,7 @@ function App() {
           <Route path="/analysis" element={<AnalysisPage />} />
           <Route path="/pos" element={<POSPage />} />
           <Route path="/pos-flask" element={<POSPageFlask />} />
+          <Route path="/history" element={<HistoryPage />} />
         </Routes>
       </div>
     </Router>

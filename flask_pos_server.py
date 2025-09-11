@@ -187,7 +187,7 @@ def api_customer():
     
     cur = conn.cursor(cursor_factory=RealDictCursor)
     try:
-        cur.execute("SELECT code, name_1 as name FROM erp_customer ORDER BY name_1")
+        cur.execute("SELECT code, name_1 as name FROM ar_customer ORDER BY name_1")
         result = cur.fetchall()
         return jsonify({'list': result}), 200
 
@@ -324,23 +324,8 @@ def api_pos_billing():
         if conn:
             conn.close()
 
-@app.before_request
-def handle_preflight():
-    """Handle preflight OPTIONS requests"""
-    if request.method == "OPTIONS":
-        response = jsonify()
-        response.headers.add("Access-Control-Allow-Origin", "*")
-        response.headers.add('Access-Control-Allow-Headers', "*")
-        response.headers.add('Access-Control-Allow-Methods', "*")
-        return response
-
-@app.after_request
-def after_request(response):
-    """Add CORS headers to all responses"""
-    response.headers.add('Access-Control-Allow-Origin', '*')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-    return response
+# The @app.before_request and @app.after_request for CORS have been removed 
+# to rely solely on the Flask-Cors extension, which is already configured.
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

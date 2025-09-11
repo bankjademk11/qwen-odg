@@ -55,6 +55,9 @@ function NavigationBar() {
             <Nav.Link as={Link} to="/products" className="mx-2 px-3 py-2 rounded bg-light text-primary fw-bold" style={{ fontSize: '1rem' }}>
               <i className="bi bi-list"></i> ລາຍການສິນຄ້າ
             </Nav.Link>
+            <Nav.Link as={Link} to="/history" className="mx-2 px-3 py-2 rounded bg-light text-primary fw-bold" style={{ fontSize: '1rem' }}>
+              <i className="bi bi-clock-history"></i> ປະຫວັດການຂາຍ
+            </Nav.Link>
             <Nav.Link as={Link} to="/transfers" className="mx-2 px-3 py-2 rounded bg-light text-primary fw-bold" style={{ fontSize: '1rem' }}>
               <i className="bi bi-cart-plus"></i> ຄຳຂໍເຕີມສິນຄ້າ
             </Nav.Link>
