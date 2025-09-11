@@ -46,7 +46,10 @@ function NavigationBar() {
         <Navbar.Toggle />
         <Navbar.Collapse className="justify-content-end">
           <Nav className="align-items-center">
-            <Nav.Link as={Link} to="/pos" className="mx-2 px-3 py-2 rounded bg-success text-white fw-bold" style={{ fontSize: '1rem' }}>
+            {/* <Nav.Link as={Link} to="/pos" className="mx-2 px-3 py-2 rounded bg-success text-white fw-bold" style={{ fontSize: '1rem' }}>
+              <i className="bi bi-display"></i> ລະບົບ POS (FastAPI)
+            </Nav.Link> */}
+            <Nav.Link as={Link} to="/pos-flask" className="mx-2 px-3 py-2 rounded bg-warning text-dark fw-bold" style={{ fontSize: '1rem' }}>
               <i className="bi bi-display"></i> ລະບົບ POS
             </Nav.Link>
             <Nav.Link as={Link} to="/products" className="mx-2 px-3 py-2 rounded bg-light text-primary fw-bold" style={{ fontSize: '1rem' }}>

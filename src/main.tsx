@@ -11,6 +11,7 @@ import TransferPrintPage from './TransferPrintPage'; // Import the new page
 import EditTransferPage from './EditTransferPage'; // Import the new edit page
 import LoginPage from './LoginPage';
 import POSPage from './POSPage'; // <--- Import POS Page
+import POSPageFlask from './POSPageFlask'; // <--- Import Flask POS Page
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import './index.css';
@@ -33,7 +34,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           path="/"
           element={
             <ProtectedRoute>
-              <ProductList />
+              <POSPageFlask />
             </ProtectedRoute>
           }
         />
@@ -100,6 +101,15 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           element={
             <ProtectedRoute>
               <POSPage />
+            </ProtectedRoute>
+          }
+        />
+        {/* Add the new Flask POS route */}
+        <Route
+          path="/pos-flask"
+          element={
+            <ProtectedRoute>
+              <POSPageFlask />
             </ProtectedRoute>
           }
         />
