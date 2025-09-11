@@ -87,36 +87,46 @@ def api_pos_product():
     
     cur = conn.cursor(cursor_factory=RealDictCursor)
     try:
-        # สร้าง query สำหรับดึงข้อมูลสินค้า
-        query = """SELECT 
-                    b.code as item_code,
-                    b.name_1 as item_name,
-                    'PCS' as unit_code,  -- ใช้ค่าคงที่ชั่วคราว
-                    0 as price,  -- ใช้ค่าคงที่ชั่วคราว
-                    a.balance_qty as stock_quantity,
-                    '/image/exam.jpg' as image,
-                    '/image/exam.jpg' as url_image  -- ใช้ค่า default ชั่วคราว
-                   FROM sml_ic_function_stock_balance_warehouse_location('2099-12-31', '', %s, %s) a
-                   LEFT JOIN ic_inventory b ON b.code = a.ic_code"""
-        
+        # สร้าง query สำหรับดึงข้อมูลสินค้า (เวอร์ชันใหม่ตามที่ผู้ใช้ให้มา)
+        query = """
+            SELECT
+                a.ic_code as item_code,
+                a.ic_name as item_name,
+                a.ic_unit_code as unit_code,
+                a.balance_qty as stock_quantity,
+                (SELECT url_image FROM product_image WHERE ic_code = a.ic_code AND line_number = 1) as url_image,
+                COALESCE((SELECT sale_price1 FROM ic_inventory_price
+                          WHERE current_date BETWEEN from_date AND to_date
+                          AND currency_code ='02'
+                          AND ic_code=a.ic_code
+                          AND unit_code=a.ic_unit_code
+                          AND cust_group_1='101'
+                          ORDER BY roworder DESC LIMIT 1), 0) as price
+            FROM
+                sml_ic_function_stock_balance_warehouse_location('2099-12-31', '', %s, %s) a
+            LEFT JOIN ic_inventory b ON b.code = a.ic_code
+        """
+
+        # Build WHERE clauses
+        where_clauses = ["a.balance_qty > 0"]
         params = [whcode, loccode]
-        
-        # เพิ่มเงื่อนไขสำหรับ category ถ้ามี
+
         if category and category != 'All':
-            query += """ LEFT JOIN ic_category f ON f.code = b.item_category 
-                         WHERE a.balance_qty > 0 AND f.name_1 = %s"""
+            # Assuming category name is unique
+            where_clauses.append("b.item_category = (SELECT code FROM ic_category WHERE name_1 = %s LIMIT 1)")
             params.append(category)
-        else:
-            query += " WHERE a.balance_qty > 0"
-            
-        # เพิ่มเงื่อนไขสำหรับ search ถ้ามี
+
         if search:
-            query += " AND (b.name_1 ILIKE %s OR b.code ILIKE %s)"
+            where_clauses.append("(a.ic_name ILIKE %s OR a.ic_code ILIKE %s)")
             params.extend([f"%{search}%", f"%{search}%"])
-            
-        query += " ORDER BY b.name_1 LIMIT %s OFFSET %s"
+
+        if where_clauses:
+            query += " WHERE " + " AND ".join(where_clauses)
+
+        # Add ordering, limit, and offset
+        query += " ORDER BY a.ic_name LIMIT %s OFFSET %s"
         params.extend([limit, offset])
-        
+
         cur.execute(query, params)
         result = cur.fetchall()
         return jsonify({'list': result}), 200

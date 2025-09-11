@@ -326,14 +326,18 @@ const POSPageFlask = () => {
     }
   };
 
-  // ฟังก์ชันเพื่อเลือก URL รูปภาพที่เหมาะสม
   const getImageUrl = (product: Product) => {
-    // ถ้ามี url_image และไม่ใช่ค่าว่าง ให้ใช้ url_image
+    const imageBaseUrl = 'https://www.odienmall.com/static/image/product/';
+    // ถ้ามี url_image และไม่ใช่ค่าว่าง
     if (product.url_image && product.url_image.trim() !== '') {
-      return product.url_image;
+      // For robustness, check if it's already a full URL
+      if (product.url_image.startsWith('http')) {
+        return product.url_image;
+      }
+      return `${imageBaseUrl}${product.url_image}`;
     }
-    // ถ้าไม่มี url_image ให้ใช้ image (default)
-    return product.image || '/image/exam.jpg';
+    // Fallback if no image is specified
+    return '/image/exam.jpg';
   };
 
   return (
