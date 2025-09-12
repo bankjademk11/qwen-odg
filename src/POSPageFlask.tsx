@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Container, Row, Col, Card, Button, ListGroup, Form, Spinner, Alert, Nav, Modal } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, ListGroup, Form, Spinner, Alert, Nav, Modal, Toast, ToastContainer } from 'react-bootstrap';
 import NavigationBar from './NavigationBar';
+import { useNavigate } from 'react-router-dom';
 import './POSPage.css';
 
 const ITEMS_PER_PAGE = 30;
@@ -33,6 +34,7 @@ interface Customer {
 }
 
 const POSPageFlask = () => {
+  const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState<boolean>(true); // Initial page load
   const [loadingMore, setLoadingMore] = useState<boolean>(false); // Subsequent loads
@@ -41,8 +43,30 @@ const POSPageFlask = () => {
   const [hasMore, setHasMore] = useState<boolean>(true);
   
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearchTerm = useRef<string>('');
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load cart from localStorage on initial render
+  // Debounce search term
+  useEffect(() => {
+    if (searchTimeout.current) {
+      clearTimeout(searchTimeout.current);
+    }
+    searchTimeout.current = setTimeout(() => {
+      debouncedSearchTerm.current = searchTerm;
+      // Trigger product fetch with the debounced term
+      setProducts([]);
+      setOffset(0);
+      setHasMore(true);
+      fetchProducts(0);
+    }, 500); // 500ms debounce delay
+
+    return () => {
+      if (searchTimeout.current) {
+        clearTimeout(searchTimeout.current);
+      }
+    };
+  }, [searchTerm]);
+  
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
       const savedCart = localStorage.getItem('posCartFlask');
@@ -62,6 +86,8 @@ const POSPageFlask = () => {
     }
   }, [cart]);
 
+  const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+
   const [categories, setCategories] = useState<Category[]>([{name: 'All', count: 0}]);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
@@ -74,12 +100,26 @@ const POSPageFlask = () => {
   const [paymentMethod, setPaymentMethod] = useState<string>('cash');
   const [customerSearch, setCustomerSearch] = useState('');
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
+  const [amountReceived, setAmountReceived] = useState<number>(0);
+  const [change, setChange] = useState<number>(0);
+  const [isCartExpanded, setIsCartExpanded] = useState<boolean>(false);
 
   // State for bill parking
   const [showParkModal, setShowParkModal] = useState(false);
   const [showRecallModal, setShowRecallModal] = useState(false);
   const [parkReferenceName, setParkReferenceName] = useState('');
   const [parkedBills, setParkedBills] = useState<any[]>([]);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [receiptData, setReceiptData] = useState<any>(null);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastVariant, setToastVariant] = useState('success');
+
+  const showCustomToast = (message: string, variant: string = 'success') => {
+    setToastMessage(message);
+    setToastVariant(variant);
+    setShowToast(true);
+  };
 
   const productGridRef = useRef<HTMLDivElement>(null);
   const categoryTabsRef = useRef<HTMLDivElement>(null);
@@ -144,6 +184,11 @@ const POSPageFlask = () => {
     fetchLocations();
   }, [selectedWarehouse]);
 
+  // Calculate change whenever total or amountReceived changes
+  useEffect(() => {
+    setChange(amountReceived - total);
+  }, [amountReceived, total]);
+
   const fetchProducts = useCallback(async (currentOffset: number) => {
     if (currentOffset === 0) setLoading(true);
     else setLoadingMore(true);
@@ -152,7 +197,7 @@ const POSPageFlask = () => {
       const params = new URLSearchParams({
         whcode: selectedWarehouse,
         loccode: selectedLocation,
-        search: searchTerm,
+        search: debouncedSearchTerm.current,
         limit: ITEMS_PER_PAGE.toString(),
         offset: currentOffset.toString()
       });
@@ -269,67 +314,46 @@ const POSPageFlask = () => {
     }
   };
 
-  const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
-
   // Process billing
   const processBilling = async () => {
-    if (cart.length === 0 || !selectedCustomer) {
-      alert('ກະລຸນາເລືອກລູກຄ້າ ແລະ ເລືອກສິນຄ້າໃສ່ກະຕ່າກ່ອນ');
+    if (cart.length === 0) {
+      showCustomToast('ກະລຸນາເລືອກສິນຄ້າໃສ່ກະຕ່າກ່ອນ', 'warning');
+      return;
+    }
+    if (!selectedCustomer) {
+      showCustomToast('ກະລຸນາເລືອກລູກຄ້າກ່ອນ', 'warning');
+      return;
+    }
+    if (amountReceived < total) {
+      showCustomToast('ຈຳນວນເງິນທີ່ຮັບມາບໍ່ພຽງພໍ', 'warning');
       return;
     }
 
-    try {
-      // Get document number
-      const docNoResponse = await fetch('http://localhost:5000/docno');
-      if (!docNoResponse.ok) {
-        throw new Error('Failed to get document number');
-      }
-      const docNoData = await docNoResponse.json();
-      const docNo = docNoData.docno;
+    // Generate doc_no client-side
+    const docNo = `BILL-${Date.now()}`;
 
-      // Prepare billing data
-      const billingData = {
-        doc_no: docNo,
-        doc_date: new Date().toISOString().split('T')[0],
-        customer_code: selectedCustomer,
-        total_amount: total,
-        payment_method: paymentMethod, // Add payment method
-        items: cart.map(item => ({
-          item_code: item.item_code,
-          item_name: item.item_name,
-          unit_code: item.unit_code,
-          qty: item.qty,
-          price: item.price,
-          amount: item.price * item.qty
-        })),
-        user_code: 'USER001' // This should come from actual user session
-      };
+    const newReceipt = {
+      doc_no: docNo,
+      doc_date: new Date().toLocaleString(),
+      customer_name: customers.find(c => c.code === selectedCustomer)?.name || selectedCustomer,
+      total_amount: total,
+      amount_received: amountReceived,
+      change_amount: change,
+      payment_method: paymentMethod,
+      items: cart,
+    };
+    setReceiptData(newReceipt);
+    setShowReceiptModal(true);
 
-      // Send billing request
-      const response = await fetch('http://localhost:5000/posbilling', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(billingData)
-      });
+    // Save receipt to localStorage
+    const savedReceipts = JSON.parse(localStorage.getItem('posReceiptsFlask') || '[]');
+    localStorage.setItem('posReceiptsFlask', JSON.stringify([newReceipt, ...savedReceipts]));
 
-      if (!response.ok) {
-        throw new Error('Failed to process billing');
-      }
-
-      const result = await response.json();
-      if (result.success) {
-        alert(`ບິນໄດ້ຖືກບັນທຶກສຳເລັດ! ເລກບິນ: ${docNo}`);
-        // Clear cart after successful billing
-        setCart([]);
-      } else {
-        alert(`ມີຂໍ້ຜິດພາດໃນການບັນທຶກບິນ: ${result.error}`);
-      }
-    } catch (error) {
-      console.error('Error processing billing:', error);
-      alert('ມີຂໍ້ຜິດພາດໃນການບັນທຶກບິນ');
-    }
+    showCustomToast(`ບິນໄດ້ຖືກບັນທຶກສຳເລັດ! ເລກບິນ: ${docNo}`);
+    // Clear cart after successful billing
+    setCart([]);
+    setAmountReceived(0);
+    setChange(0);
   };
 
   const getImageUrl = (product: Product) => {
@@ -350,50 +374,43 @@ const POSPageFlask = () => {
 
   const handleShowRecallModal = async () => {
     try {
-      const response = await fetch('http://localhost:5000/parked-bills');
-      const data = await response.json();
-      if (data.success) {
-        setParkedBills(data.list);
-        setShowRecallModal(true);
-      } else {
-        alert('Failed to fetch parked bills.');
-      }
+      const savedParkedBills = JSON.parse(localStorage.getItem('posParkedBillsFlask') || '[]');
+      setParkedBills(savedParkedBills);
+      setShowRecallModal(true);
     } catch (error) {
-      console.error('Error fetching parked bills:', error);
-      alert('Error fetching parked bills.');
+      console.error('Error fetching parked bills from localStorage:', error);
+      showCustomToast('Error fetching parked bills.', 'danger');
     }
   };
 
   const handleParkBill = async () => {
     if (!parkReferenceName) {
-      alert('Please enter a reference name for the bill.');
+      showCustomToast('Please enter a reference name for the bill.', 'warning');
       return;
     }
+
     try {
-      const response = await fetch('http://localhost:5000/park-bill', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          reference_name: parkReferenceName,
-          cart_data: cart,
-          customer_code: selectedCustomer,
-          customer_search: customerSearch,
-        }),
-      });
-      const result = await response.json();
-      if (result.success) {
-        alert('Bill parked successfully!');
-        setCart([]);
-        setSelectedCustomer('');
-        setCustomerSearch('');
-        setParkReferenceName('');
-        setShowParkModal(false);
-      } else {
-        alert(`Failed to park bill: ${result.error}`);
-      }
+      const newParkedBill = {
+        id: Date.now(), // Unique ID for the parked bill
+        reference_name: parkReferenceName,
+        cart_data: cart,
+        customer_code: selectedCustomer,
+        customer_search: customerSearch,
+        time: new Date().toLocaleString(),
+      };
+
+      const savedParkedBills = JSON.parse(localStorage.getItem('posParkedBillsFlask') || '[]');
+      localStorage.setItem('posParkedBillsFlask', JSON.stringify([newParkedBill, ...savedParkedBills]));
+
+      showCustomToast('Bill parked successfully!');
+      setCart([]);
+      setSelectedCustomer('');
+      setCustomerSearch('');
+      setParkReferenceName('');
+      setShowParkModal(false);
     } catch (error) {
-      console.error('Error parking bill:', error);
-      alert('Error parking bill.');
+      console.error('Error parking bill to localStorage:', error);
+      showCustomToast('Error parking bill.', 'danger');
     }
   };
 
@@ -403,13 +420,16 @@ const POSPageFlask = () => {
     setSelectedCustomer(bill.customer_code || '');
     setCustomerSearch(bill.customer_search || '');
 
-    // Delete the parked bill from the server
+    // Delete the parked bill from localStorage
     try {
-      await fetch(`http://localhost:5000/parked-bills/${bill.id}`, {
-        method: 'DELETE',
-      });
+      const savedParkedBills = JSON.parse(localStorage.getItem('posParkedBillsFlask') || '[]');
+      const updatedParkedBills = savedParkedBills.filter((pb: any) => pb.id !== bill.id);
+      localStorage.setItem('posParkedBillsFlask', JSON.stringify(updatedParkedBills));
+      setParkedBills(updatedParkedBills); // Update state immediately
+      showCustomToast('Bill recalled and removed from parked list!');
     } catch (error) {
-      console.error('Could not delete parked bill from server, but recalling locally.', error);
+      console.error('Could not delete parked bill from localStorage, but recalling locally.', error);
+      showCustomToast('Error removing parked bill from list.', 'danger');
     }
     
     setShowRecallModal(false);
@@ -420,8 +440,21 @@ const POSPageFlask = () => {
       <NavigationBar />
       <Container fluid className="pos-container mt-4">
         <Row>
+          {/* Left Sidebar for POS functions */}
+          <Col md={1} className="d-flex flex-column align-items-center p-2">
+            <Button 
+              variant="light" 
+              className="mb-2 w-100 d-flex flex-column align-items-center justify-content-center text-primary"
+              style={{ height: '80px' }}
+              onClick={() => navigate('/sales-history')}
+            >
+              <i className="bi bi-clock-history fs-4"></i>
+              <span style={{ fontSize: '0.75rem' }}>ປະຫວັດ</span>
+            </Button>
+          </Col>
+
           {/* Product Selection */}
-          <Col md={7}>
+          <Col md={6}>
             <Card className="h-100">
               <Card.Header>
                 <Row className="align-items-center">
@@ -592,11 +625,35 @@ const POSPageFlask = () => {
               <Card.Header>
                 <h4 className="mb-0">ກະຕ່າສິນຄ້າ</h4>
               </Card.Header>
+              <div className="p-3 border-bottom">
+                <div className="d-grid gap-2">
+                  <Button variant="primary" size="lg" disabled={cart.length === 0 || !selectedCustomer} onClick={processBilling}>
+                    ຈ່າຍເງິນ
+                  </Button>
+                  <Row>
+                    <Col>
+                      <Button variant="info" className="w-100" disabled={cart.length === 0} onClick={() => setShowParkModal(true)}>
+                        ພັກບິນ (Park Bill)
+                      </Button>
+                    </Col>
+                    <Col>
+                      <Button variant="secondary" className="w-100" onClick={handleShowRecallModal}>
+                        ເອີ້ນບິນ (Recall Bill)
+                      </Button>
+                    </Col>
+                  </Row>
+                  <Button variant="outline-danger" size="lg" onClick={() => {
+                    setCart([]);
+                    setSelectedCustomer('');
+                    setCustomerSearch('');
+                  }}>
+                    ຍົກເລີກ
+                  </Button>
+                </div>
+              </div>
               <Card.Body className="d-flex flex-column">
-                <ListGroup variant="flush" className="flex-grow-1">
-                  {cart.length === 0 ? (
-                    <p className="text-center text-muted mt-3">ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ</p>
-                  ) : (
+                <ListGroup variant="flush" className="flex-grow-1 cart-items-scrollable">
+                  {isCartExpanded ? (
                     cart.map(item => (
                       <ListGroup.Item key={item.item_code} className="d-flex justify-content-between align-items-center">
                         <div>
@@ -610,13 +667,43 @@ const POSPageFlask = () => {
                         </div>
                       </ListGroup.Item>
                     ))
+                  ) : (
+                    <p className="text-center text-muted mt-3">{cart.length === 0 ? 'ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ' : `${cart.length} ລາຍການໃນກະຕ່າ`}</p>
                   )}
                 </ListGroup>
+                <div className="text-center mt-2">
+                  {cart.length > 0 && (
+                    <Button variant="link" onClick={() => setIsCartExpanded(!isCartExpanded)}>
+                      {isCartExpanded ? 'ຍຸບລາຍການ' : 'ຂະຫຍາຍລາຍການ'}
+                    </Button>
+                  )}
+                </div>
                 <div className="mt-auto">
                   <hr />
                   <div className="d-flex justify-content-between fs-4 fw-bold">
                     <span>ລວມທັງໝົດ:</span>
                     <span>{total.toLocaleString()} ₭</span>
+                  </div>
+
+                  {/* Amount Received Input */}
+                  <Form.Group className="my-3">
+                    <Form.Label className="fw-bold">ເງິນທີ່ຮັບມາ:</Form.Label>
+                    <Form.Control
+                      type="number"
+                      placeholder="0"
+                      value={amountReceived === 0 ? '' : amountReceived}
+                      onChange={(e) => setAmountReceived(parseFloat(e.target.value) || 0)}
+                      min="0"
+                    />
+                  </Form.Group>
+
+                  {/* Change Display */}
+                  <div className="d-flex justify-content-between fs-4 fw-bold text-success mb-3">
+                    <span>ເງິນທອນ:</span>
+                    <span>{change.toLocaleString()} ₭</span>
+                  </div>
+
+                  <div className="d-flex justify-content-between fs-4 fw-bold">
                   </div>
 
                   {/* Payment Method Selection */}
@@ -632,31 +719,7 @@ const POSPageFlask = () => {
                       </Form.Select>
                     </Form.Group>
 
-                  <div className="d-grid gap-2 mt-3">
-                    <Button variant="primary" size="lg" disabled={cart.length === 0 || !selectedCustomer} onClick={processBilling}>
-                      ຈ່າຍເງິນ
-                    </Button>
-                    <Row>
-                      <Col>
-                        <Button variant="info" className="w-100" disabled={cart.length === 0} onClick={() => setShowParkModal(true)}>
-                          ພັກບິນ (Park Bill)
-                        </Button>
-                      </Col>
-                      <Col>
-                        <Button variant="secondary" className="w-100" onClick={handleShowRecallModal}>
-                          ເອີ້ນບິນ (Recall Bill)
-                        </Button>
-                      </Col>
-                    </Row>
-                    <Button variant="outline-danger" size="lg" onClick={() => {
-                      setCart([]);
-                      setSelectedCustomer('');
-                      setCustomerSearch('');
-                    }}>
-                      ຍົກເລີກ
-                    </Button>
                   </div>
-                </div>
               </Card.Body>
             </Card>
           </Col>
@@ -724,6 +787,66 @@ const POSPageFlask = () => {
           </Button>
         </Modal.Footer>
       </Modal>
+
+      {/* Receipt Modal */}
+      <Modal show={showReceiptModal} onHide={() => setShowReceiptModal(false)} centered size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>ໃບຮັບເງິນ (Receipt)</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {receiptData && (
+            <div>
+              <p><strong>ເລກບິນ:</strong> {receiptData.doc_no}</p>
+              <p><strong>ວັນທີ:</strong> {receiptData.doc_date}</p>
+              <p><strong>ລູກຄ້າ:</strong> {receiptData.customer_name}</p>
+              <hr />
+              <h6>ລາຍການສິນຄ້າ:</h6>
+              <ListGroup variant="flush">
+                {receiptData.items.map((item: CartItem) => (
+                  <ListGroup.Item key={item.item_code} className="d-flex justify-content-between">
+                    <span>{item.item_name} x {item.qty}</span>
+                    <span>{item.price.toLocaleString()} ₭</span>
+                  </ListGroup.Item>
+                ))}
+              </ListGroup>
+              <hr />
+              <div className="d-flex justify-content-between fw-bold">
+                <span>ລວມທັງໝົດ:</span>
+                <span>{receiptData.total_amount.toLocaleString()} ₭</span>
+              </div>
+              <div className="d-flex justify-content-between">
+                <span>ເງິນທີ່ຮັບມາ:</span>
+                <span>{receiptData.amount_received.toLocaleString()} ₭</span>
+              </div>
+              <div className="d-flex justify-content-between fw-bold text-success">
+                <span>ເງິນທອນ:</span>
+                <span>{receiptData.change_amount.toLocaleString()} ₭</span>
+              </div>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowReceiptModal(false)}>
+            ປິດ
+          </Button>
+          <Button variant="primary" onClick={() => {
+            if (receiptData) {
+              sessionStorage.setItem('currentReceipt', JSON.stringify(receiptData));
+              window.open('/receipt-print', '_blank');
+            }
+          }}>
+            ພິມ
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <ToastContainer position="top-end" className="p-3" style={{ zIndex: 1 }}>
+        <Toast onClose={() => setShowToast(false)} show={showToast} delay={3000} autohide bg={toastVariant}>
+          <Toast.Body className={toastVariant === 'danger' ? 'text-white' : ''}>
+            {toastMessage}
+          </Toast.Body>
+        </Toast>
+      </ToastContainer>
     </>
   );
 };

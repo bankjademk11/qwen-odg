@@ -12,6 +12,8 @@ import EditTransferPage from './EditTransferPage'; // Import the new edit page
 import LoginPage from './LoginPage';
 import POSPage from './POSPage'; // <--- Import POS Page
 import POSPageFlask from './POSPageFlask'; // <--- Import Flask POS Page
+import MiniMarketBillPage from './MiniMarketBillPage'; // <--- Import MiniMarketBillPage
+import SalesHistoryPage from './SalesHistoryPage'; // <--- Import SalesHistoryPage
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import './index.css';
@@ -110,6 +112,15 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           element={
             <ProtectedRoute>
               <POSPageFlask />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/receipt-print" element={<MiniMarketBillPage />} />
+        <Route
+          path="/sales-history"
+          element={
+            <ProtectedRoute>
+              <SalesHistoryPage />
             </ProtectedRoute>
           }
         />
