@@ -218,7 +218,7 @@ const POSPageFlask = () => {
         price: parseFloat(p.price) || 0,
         image: p.image,
         url_image: p.url_image || '', // ดึงค่า url_image ถ้ามี
-        stock_quantity: p.stock_quantity,
+        stock_quantity: parseInt(p.stock_quantity, 10) || 0,
         unit_code: p.unit_code,
         qty: 1 // Default quantity
       }));
@@ -329,31 +329,80 @@ const POSPageFlask = () => {
       return;
     }
 
-    // Generate doc_no client-side
-    const docNo = `BILL-${Date.now()}`;
+    try {
+      // Step 1: Fetch the official document number from the backend
+      const docNoResponse = await fetch('http://localhost:5000/docno');
+      if (!docNoResponse.ok) {
+        throw new Error('Failed to fetch document number.');
+      }
+      const docNoData = await docNoResponse.json();
+      const docNo = docNoData.docno;
 
-    const newReceipt = {
-      doc_no: docNo,
-      doc_date: new Date().toLocaleString(),
-      customer_name: customers.find(c => c.code === selectedCustomer)?.name || selectedCustomer,
-      total_amount: total,
-      amount_received: amountReceived,
-      change_amount: change,
-      payment_method: paymentMethod,
-      items: cart,
-    };
-    setReceiptData(newReceipt);
-    setShowReceiptModal(true);
+      if (!docNo) {
+        throw new Error('Invalid document number received from backend.');
+      }
 
-    // Save receipt to localStorage
-    const savedReceipts = JSON.parse(localStorage.getItem('posReceiptsFlask') || '[]');
-    localStorage.setItem('posReceiptsFlask', JSON.stringify([newReceipt, ...savedReceipts]));
+      // Step 2: Prepare the billing data payload
+      const billingData = {
+        doc_no: docNo,
+        doc_date: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
+        customer_code: selectedCustomer,
+        total_amount: total,
+        payment_method: paymentMethod,
+        items: cart.map(item => ({
+          ...item,
+          amount: item.price * item.qty // Ensure 'amount' is calculated
+        })),
+        user_code: 'staff' // Example user_code, adjust as needed
+      };
 
-    showCustomToast(`ບິນໄດ້ຖືກບັນທຶກສຳເລັດ! ເລກບິນ: ${docNo}`);
-    // Clear cart after successful billing
-    setCart([]);
-    setAmountReceived(0);
-    setChange(0);
+      // Step 3: Send the billing data to the backend
+      const billingResponse = await fetch('http://localhost:5000/posbilling', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(billingData),
+      });
+
+      if (!billingResponse.ok) {
+        const errorData = await billingResponse.json();
+        throw new Error(errorData.error || 'Billing failed.');
+      }
+
+      const result = await billingResponse.json();
+
+      // Step 4: Handle successful billing (UI updates)
+      const newReceipt = {
+        doc_no: result.doc_no,
+        doc_date: new Date().toLocaleString(),
+        customer_name: customers.find(c => c.code === selectedCustomer)?.name || selectedCustomer,
+        total_amount: total,
+        amount_received: amountReceived,
+        change_amount: change,
+        payment_method: paymentMethod,
+        items: cart,
+      };
+      setReceiptData(newReceipt);
+      setShowReceiptModal(true);
+
+      // Save receipt to localStorage for history purposes
+      const savedReceipts = JSON.parse(localStorage.getItem('posReceiptsFlask') || '[]');
+      localStorage.setItem('posReceiptsFlask', JSON.stringify([newReceipt, ...savedReceipts]));
+
+      showCustomToast(`ບິນໄດ້ຖືກບັນທຶກສຳເລັດ! ເລກບິນ: ${result.doc_no}`);
+      
+      // Clear cart and payment info after successful billing
+      setCart([]);
+      setAmountReceived(0);
+      setChange(0);
+      setCustomerSearch('');
+      setSelectedCustomer('');
+
+    } catch (error: any) {
+      console.error('Billing process failed:', error);
+      showCustomToast(error.message || 'ເກີດຂໍ້ຜິດພາດໃນການສ້າງບິນ', 'danger');
+    }
   };
 
   const getImageUrl = (product: Product) => {
@@ -551,6 +600,7 @@ const POSPageFlask = () => {
                           <Card.Title as="div" className="product-name">{product.item_name}</Card.Title>
                           <Card.Text className="product-code">{product.item_code} ({product.unit_code})</Card.Text>
                           <Card.Text className="product-price">{product.price.toLocaleString()} ₭</Card.Text>
+                          <Card.Text className="product-stock text-muted"><small>ຄົງເຫຼືອ: {product.stock_quantity}</small></Card.Text>
                         </Card.Body>
                       </Card>
                     ))}

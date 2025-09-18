@@ -255,75 +255,123 @@ def api_docno():
 
 @app.route('/posbilling', methods=['POST'])
 def api_pos_billing():
-    """Process POS billing/transaction"""
+    """Process POS billing/transaction and create corresponding financial records."""
     data = request.get_json()
-    
+    print(f"Received billing data: {data}")
+
     conn = get_connection()
     if not conn:
         return jsonify({'success': False, 'error': 'Database connection failed'}), 500
-    
+
     cur = conn.cursor(cursor_factory=RealDictCursor)
     try:
-        # เริ่ม transaction
+        # Start transaction
         conn.autocommit = False
-        
-        # ดึงข้อมูลจาก request
+
+        # --- Part 1: Insert into ic_trans and ic_trans_detail (Original Logic) ---
         doc_no = data.get('doc_no')
         doc_date = data.get('doc_date')
         customer_code = data.get('customer_code')
         total_amount = data.get('total_amount', 0)
         items = data.get('items', [])
         user_code = data.get('user_code', 'SYSTEM')
-        
-        # เพิ่มข้อมูลลงในตาราง ic_trans (header)
+        payment_method = data.get('payment_method', 'cash') # Get payment_method, default to 'cash'
+
         trans_query = """
         INSERT INTO ic_trans (
             trans_type, trans_flag, doc_date, doc_no, doc_time,
             branch_code, project_code, sale_code, doc_format_code,
-            cust_code, amount, creator_code, create_datetime
-        ) VALUES (
-            3, 44, %s, %s, CURRENT_TIME,
-            '00', '', %s, 'POS',
-            %s, %s, %s, CURRENT_TIMESTAMP
-        )
+            cust_code, total_amount_2, creator_code, create_datetime
+        ) VALUES (3, 44, %s, %s, LEFT(CAST(CURRENT_TIME AS VARCHAR), 5), %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
         """
-        
-        cur.execute(trans_query, (
-            doc_date, doc_no, user_code, customer_code, total_amount, user_code
-        ))
-        
-        # เพิ่มข้อมูลลงในตาราง ic_trans_detail (รายละเอียด)
+        cur.execute(trans_query, (doc_date, doc_no, '00', '', user_code, 'POS', customer_code, total_amount, user_code))
+
         for item in items:
             detail_query = """
             INSERT INTO ic_trans_detail (
                 trans_type, trans_flag, doc_date, doc_no, doc_time,
                 item_code, item_name, unit_code, qty, price,
-                amount, branch_code, sale_code, creator_code, create_datetime
-            ) VALUES (
-                3, 44, %s, %s, CURRENT_TIME,
-                %s, %s, %s, %s, %s,
-                %s, '00', %s, %s, CURRENT_TIMESTAMP
-            )
+                sum_amount, branch_code, sale_code, creator_code, create_datetime,
+                doc_date_calc, calc_flag
+            ) VALUES (3, 44, %s, %s, LEFT(CAST(CURRENT_TIME AS VARCHAR), 5), %s, %s, %s, %s, %s, %s, '00', %s, %s, CURRENT_TIMESTAMP, %s, -1)
             """
-            
-            cur.execute(detail_query, (
-                doc_date, doc_no,
-                item['item_code'], item['item_name'], item['unit_code'],
-                item['qty'], item['price'], item['amount'],
-                user_code, user_code
-            ))
+            cur.execute(detail_query, (doc_date, doc_no, item['item_code'], item['item_name'], item['unit_code'], item['qty'], item['price'], item['amount'], user_code, user_code, doc_date))
+
+            # --- DEBUGGING: SELECT and print the inserted row ---
+            print(f"--- DEBUG: Checking inserted row for doc_no={doc_no}, item_code={item['item_code']} ---")
+            cur.execute("SELECT * FROM ic_trans_detail WHERE doc_no = %s AND item_code = %s", (doc_no, item['item_code']))
+            inserted_row = cur.fetchone()
+            print(f"--- DEBUG: Fetched row: {inserted_row} ---")
+            # --- END DEBUGGING ---
+
+        # --- Part 2: Add financial records in cb_trans and cb_trans_detail (New Logic) ---
         
-        # Commit transaction
+        sql_head = """SELECT doc_no, doc_date, total_amount_2, doc_time, cust_code, doc_format_code,
+                           (SELECT COALESCE(exchange_rate_present, 0) FROM erp_currency WHERE code='02' LIMIT 1) as exchange_lak
+                           FROM ic_trans WHERE doc_no=%s"""
+        cur.execute(sql_head, (doc_no,))
+        bill_h = cur.fetchone()
+
+        if not bill_h:
+            raise Exception(f"Failed to retrieve ic_trans record for doc_no: {doc_no}")
+
+        CB_TRANS_TYPE = 2
+        CB_TRANS_FLAG = 44
+        CB_PAY_TYPE = 1
+        CB_DOC_TYPE = 1
+        CURRENCY_CODE_LAK = '02'
+
+        sql_h = """
+        INSERT INTO cb_trans
+        (trans_type, trans_flag, doc_date, doc_no, total_amount, total_net_amount, tranfer_amount, total_amount_pay, doc_time, ap_ar_code, pay_type, doc_format_code)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        cur.execute(sql_h, (
+            CB_TRANS_TYPE, CB_TRANS_FLAG, bill_h["doc_date"], bill_h["doc_no"],
+            bill_h["total_amount_2"], bill_h["total_amount_2"], bill_h["total_amount_2"], bill_h["total_amount_2"],
+            bill_h["doc_time"], bill_h["cust_code"], CB_PAY_TYPE, bill_h["doc_format_code"]
+        ))
+
+        # --- Logic for payment method ---
+        cb_bank_code = None
+        cb_bank_branch = None
+        if payment_method == 'transfer':
+            cb_bank_code = 'BCEL001'
+            cb_bank_branch = 'BCEL01'
+        
+        # Use doc_no for trans_number instead of a test value
+        cb_trans_number = doc_no
+
+        sum_amount_2_calculated = bill_h["exchange_lak"] * bill_h["total_amount_2"]
+
+        sql_detail = """
+        INSERT INTO cb_trans_detail
+        (trans_type, trans_flag, doc_date, doc_no, trans_number, bank_code, bank_branch, exchange_rate, amount, chq_due_date, doc_type, doc_time, currency_code, sum_amount_2)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        cur.execute(sql_detail, (
+            CB_TRANS_TYPE, CB_TRANS_FLAG, bill_h["doc_date"], bill_h["doc_no"],
+            cb_trans_number,
+            cb_bank_code,
+            cb_bank_branch,
+            bill_h["exchange_lak"],
+            bill_h["total_amount_2"],
+            bill_h["doc_date"],
+            CB_DOC_TYPE,
+            bill_h["doc_time"],
+            CURRENCY_CODE_LAK,
+            sum_amount_2_calculated
+        ))
+
         conn.commit()
-        
+
         return jsonify({
             'success': True,
-            'message': 'Transaction completed successfully',
+            'message': 'Transaction completed and financial records created successfully',
             'doc_no': doc_no
         }), 200
 
     except Exception as e:
-        # Rollback transaction ในกรณีที่มีข้อผิดพลาด
         conn.rollback()
         print(f"Error processing transaction: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
