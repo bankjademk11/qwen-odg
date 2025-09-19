@@ -103,6 +103,7 @@ const POSPageFlask = () => {
   const [amountReceived, setAmountReceived] = useState<number>(0);
   const [change, setChange] = useState<number>(0);
   const [isCartExpanded, setIsCartExpanded] = useState<boolean>(false);
+  const [isBilling, setIsBilling] = useState<boolean>(false);
 
   // State for bill parking
   const [showParkModal, setShowParkModal] = useState(false);
@@ -329,6 +330,7 @@ const POSPageFlask = () => {
       return;
     }
 
+    setIsBilling(true);
     try {
       // Step 1: Fetch the official document number from the backend
       const docNoResponse = await fetch('http://localhost:5000/docno');
@@ -343,6 +345,12 @@ const POSPageFlask = () => {
       }
 
       // Step 2: Prepare the billing data payload
+      const loggedInUser = JSON.parse(localStorage.getItem('loggedInUser') || '{}');
+      const userCode = loggedInUser.code || 'SYSTEM'; // Fallback to 'SYSTEM' if not found
+      const userWhCode = loggedInUser.ic_wht || selectedWarehouse; // Use user's default or current selected
+      const userShelfCode = loggedInUser.ic_shelf || selectedLocation; // Use user's default or current selected
+      const userBranchCode = loggedInUser.ic_branch || '00'; // Assuming branch code is ic_branch, fallback to '00'
+
       const billingData = {
         doc_no: docNo,
         doc_date: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
@@ -353,7 +361,10 @@ const POSPageFlask = () => {
           ...item,
           amount: item.price * item.qty // Ensure 'amount' is calculated
         })),
-        user_code: 'staff' // Example user_code, adjust as needed
+        user_code: userCode,
+        wh_code: userWhCode,
+        shelf_code: userShelfCode,
+        branch_code: userBranchCode, // Include branch_code
       };
 
       // Step 3: Send the billing data to the backend
@@ -401,7 +412,19 @@ const POSPageFlask = () => {
 
     } catch (error: any) {
       console.error('Billing process failed:', error);
-      showCustomToast(error.message || 'ເກີດຂໍ້ຜິດພາດໃນການສ້າງບິນ', 'danger');
+      let errorMessage = 'ເກີດຂໍ້ຜິດພາດໃນການສ້າງບິນ'; // Default generic message
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (error.response && error.response.json) {
+        // Try to parse error from backend response if it's an HTTP error
+        const errorJson = await error.response.json();
+        if (errorJson.error) {
+          errorMessage = errorJson.error;
+        }
+      }
+      showCustomToast(errorMessage, 'danger');
+    } finally {
+      setIsBilling(false);
     }
   };
 
@@ -677,8 +700,15 @@ const POSPageFlask = () => {
               </Card.Header>
               <div className="p-3 border-bottom">
                 <div className="d-grid gap-2">
-                  <Button variant="primary" size="lg" disabled={cart.length === 0 || !selectedCustomer} onClick={processBilling}>
-                    ຈ່າຍເງິນ
+                  <Button variant="primary" size="lg" disabled={cart.length === 0 || !selectedCustomer || isBilling} onClick={processBilling}>
+                    {isBilling ? (
+                      <>
+                        <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
+                        <span className="ms-2">ກຳລັງປະມວນຜົນ...</span>
+                      </>
+                    ) : (
+                      'ຈ່າຍເງິນ'
+                    )}
                   </Button>
                   <Row>
                     <Col>

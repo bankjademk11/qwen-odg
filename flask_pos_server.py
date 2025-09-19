@@ -125,7 +125,7 @@ def api_pos_product():
 
         # Add ordering, limit, and offset
         query += " ORDER BY a.ic_name LIMIT %s OFFSET %s"
-        params.extend([limit, offset])
+        params.extend([limit, offset])  # pyright: ignore[reportArgumentType]
 
         cur.execute(query, params)
         result = cur.fetchall()
@@ -268,41 +268,82 @@ def api_pos_billing():
         # Start transaction
         conn.autocommit = False
 
-        # --- Part 1: Insert into ic_trans and ic_trans_detail (Original Logic) ---
+        # --- Part 1: Insert into ic_trans and ic_trans_detail ---
         doc_no = data.get('doc_no')
         doc_date = data.get('doc_date')
         customer_code = data.get('customer_code')
         total_amount = data.get('total_amount', 0)
         items = data.get('items', [])
+        
+        # Get user-specific data from the payload
         user_code = data.get('user_code', 'SYSTEM')
+        wh_code = data.get('wh_code', '1301') # Use user's warehouse or default
+        shelf_code = data.get('shelf_code', '01') # Use user's shelf or default
+        branch_code = data.get('branch_code', '00') # Use user's branch or default
         payment_method = data.get('payment_method', 'cash') # Get payment_method, default to 'cash'
 
+        # --- ic_trans INSERT ---
         trans_query = """
         INSERT INTO ic_trans (
             trans_type, trans_flag, doc_date, doc_no, doc_time,
             branch_code, project_code, sale_code, doc_format_code,
             cust_code, total_amount_2, creator_code, create_datetime
-        ) VALUES (3, 44, %s, %s, LEFT(CAST(CURRENT_TIME AS VARCHAR), 5), %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+        ) VALUES (2, 44, %s, %s, LEFT(CAST(CURRENT_TIME AS VARCHAR), 5), %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
         """
-        cur.execute(trans_query, (doc_date, doc_no, '00', '', user_code, 'POS', customer_code, total_amount, user_code))
+        cur.execute(trans_query, (doc_date, doc_no, branch_code, '', user_code, 'POS', customer_code, float(total_amount), user_code))
 
-        for item in items:
+        # --- ic_trans_detail INSERT ---
+        for idx, item in enumerate(items):
             detail_query = """
-            INSERT INTO ic_trans_detail (
-                trans_type, trans_flag, doc_date, doc_no, doc_time,
-                item_code, item_name, unit_code, qty, price,
-                sum_amount, branch_code, sale_code, creator_code, create_datetime,
-                doc_date_calc, calc_flag
-            ) VALUES (3, 44, %s, %s, LEFT(CAST(CURRENT_TIME AS VARCHAR), 5), %s, %s, %s, %s, %s, %s, '00', %s, %s, CURRENT_TIMESTAMP, %s, -1)
+            INSERT INTO ic_trans_detail(
+                trans_type,trans_flag,doc_date,doc_no,cust_code,inquiry_type,
+                item_code,item_name,unit_code,qty,
+                price,sum_amount,
+                price_2,sum_amount_2,
+                discount,discount_amount,
+                average_cost,sum_of_cost,
+                average_cost_1,sum_of_cost_1,
+                price_exclude_vat,sum_amount_exclude_vat,
+                line_number,branch_code,wh_code,shelf_code,stand_value,divide_value,calc_flag,set_ref_price,item_type,vat_type,doc_time,is_get_price,
+                doc_date_calc,doc_time_calc,
+                sale_code,sale_group, creator_code, create_datetime
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, 
+                %s, %s, %s, %s, 
+                %s, %s, 
+                0, 0, 
+                '', 0, 
+                0, 0, 
+                0, 0, 
+                %s, %s, 
+                %s, %s, %s, %s, 1, 1, -1, 0, 0, %s, LEFT(CAST(CURRENT_TIME AS VARCHAR), 5), 0, 
+                %s, '', 
+                %s, '', %s, CURRENT_TIMESTAMP
+            )
             """
-            cur.execute(detail_query, (doc_date, doc_no, item['item_code'], item['item_name'], item['unit_code'], item['qty'], item['price'], item['amount'], user_code, user_code, doc_date))
+            
+            params = (
+                2, 44, doc_date, doc_no, customer_code, 1, 
+                item['item_code'], item['item_name'], item['unit_code'], item['qty'],
+                item['price'], item['amount'],
+                item['price'], item['amount'], # price_exclude_vat, sum_amount_exclude_vat
+                idx + 1, branch_code, wh_code, shelf_code, # line_number, branch, wh, shelf
+                2, # vat_type
+                doc_date, # doc_date_calc
+                user_code, # sale_code
+                user_code # creator_code
+            )
 
-            # --- DEBUGGING: SELECT and print the inserted row ---
-            print(f"--- DEBUG: Checking inserted row for doc_no={doc_no}, item_code={item['item_code']} ---")
-            cur.execute("SELECT * FROM ic_trans_detail WHERE doc_no = %s AND item_code = %s", (doc_no, item['item_code']))
-            inserted_row = cur.fetchone()
-            print(f"--- DEBUG: Fetched row: {inserted_row} ---")
-            # --- END DEBUGGING ---
+            cur.execute(detail_query, params)
+
+        # --- Part 1.5: Insert into ic_trans_shipment (Temporarily commented out due to missing table) ---
+        # shipment_query = """
+        # INSERT INTO ic_trans_shipment (
+        #     doc_no, doc_date, customer_code, wh_code, shelf_code, branch_code, creator_code, create_datetime
+        # ) VALUES (%s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+        # """
+        # cur.execute(shipment_query, (doc_no, doc_date, customer_code, wh_code, shelf_code, branch_code, user_code))
+
 
         # --- Part 2: Add financial records in cb_trans and cb_trans_detail (New Logic) ---
         
@@ -321,15 +362,27 @@ def api_pos_billing():
         CB_DOC_TYPE = 1
         CURRENCY_CODE_LAK = '02'
 
+        cash_amount = 0.0
+        tranfer_amount_val = 0.0
+        card_amount = 0.0
+
+        if payment_method == 'cash':
+            cash_amount = bill_h["total_amount_2"]
+        elif payment_method == 'transfer':
+            tranfer_amount_val = bill_h["total_amount_2"]
+        elif payment_method == 'card':
+            card_amount = bill_h["total_amount_2"]
+
         sql_h = """
         INSERT INTO cb_trans
-        (trans_type, trans_flag, doc_date, doc_no, total_amount, total_net_amount, tranfer_amount, total_amount_pay, doc_time, ap_ar_code, pay_type, doc_format_code)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        (trans_type, trans_flag, doc_date, doc_no, total_amount, total_net_amount, tranfer_amount, total_amount_pay, doc_time, ap_ar_code, pay_type, doc_format_code, cash_amount, card_amount)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         cur.execute(sql_h, (
             CB_TRANS_TYPE, CB_TRANS_FLAG, bill_h["doc_date"], bill_h["doc_no"],
-            bill_h["total_amount_2"], bill_h["total_amount_2"], bill_h["total_amount_2"], bill_h["total_amount_2"],
-            bill_h["doc_time"], bill_h["cust_code"], CB_PAY_TYPE, bill_h["doc_format_code"]
+            bill_h["total_amount_2"], bill_h["total_amount_2"], tranfer_amount_val, bill_h["total_amount_2"],
+            bill_h["doc_time"], bill_h["cust_code"], CB_PAY_TYPE, bill_h["doc_format_code"],
+            cash_amount, card_amount
         ))
 
         # --- Logic for payment method ---
