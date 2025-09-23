@@ -104,6 +104,7 @@ const POSPageFlask = () => {
   const [change, setChange] = useState<number>(0);
   const [isCartExpanded, setIsCartExpanded] = useState<boolean>(false);
   const [isBilling, setIsBilling] = useState<boolean>(false);
+  const [categorySearchTerm, setCategorySearchTerm] = useState('');
 
   // State for bill parking
   const [showParkModal, setShowParkModal] = useState(false);
@@ -515,8 +516,8 @@ const POSPageFlask = () => {
           {/* Left Sidebar for POS functions */}
           <Col md={1} className="d-flex flex-column align-items-center p-2">
             <Button 
-              variant="light" 
-              className="mb-2 w-100 d-flex flex-column align-items-center justify-content-center text-primary"
+              variant="warning" 
+              className="mb-2 w-100 d-flex flex-column align-items-center justify-content-center"
               style={{ height: '80px' }}
               onClick={() => navigate('/sales-history')}
             >
@@ -526,7 +527,7 @@ const POSPageFlask = () => {
           </Col>
 
           {/* Product Selection */}
-          <Col md={6}>
+          <Col md={7}>
             <Card className="h-100">
               <Card.Header>
                 <Row className="align-items-center">
@@ -583,11 +584,26 @@ const POSPageFlask = () => {
               {/* Category Tabs with Scroll and Sticky Header */}
               <div className="category-tabs-wrapper">
                 <div className="p-3 border-bottom category-header-sticky">
-                  <p className="mb-2 fw-bold">ໝວດໝູ່:</p>
+                  <Row className="align-items-center mb-2">
+                    <Col xs={5}><p className="mb-0 fw-bold">ໝວດໝູ່:</p></Col>
+                    <Col xs={7}>
+                      <Form.Control
+                        type="text"
+                        placeholder="ຄົ້ນຫາໝວດໝູ່..."
+                        value={categorySearchTerm}
+                        onChange={(e) => setCategorySearchTerm(e.target.value)}
+                        size="sm"
+                      />
+                    </Col>
+                  </Row>
                   {categoriesError && <Alert variant="warning">ບໍ່ສາມາດໂຫລດໝວດໝູ່ໄດ້.</Alert>}
                   <div className="category-tabs-container" ref={categoryTabsRef}>
                     <Nav variant="pills" className="category-tabs flex-nowrap overflow-auto">
-                      {categories.map((category, idx) => (
+                      {categories
+                        .filter(category => 
+                          category.name.toLowerCase().includes(categorySearchTerm.toLowerCase())
+                        )
+                        .map((category, idx) => (
                         <Nav.Item key={idx} className="me-2 mb-2">
                           <Nav.Link
                             eventKey={category.name}
@@ -644,7 +660,7 @@ const POSPageFlask = () => {
           </Col>
 
           {/* Right Column: Customer and Cart */}
-          <Col md={5}>
+          <Col md={4}>
             {/* Customer Selection */}
             <Card className="mb-3">
               <Card.Header>

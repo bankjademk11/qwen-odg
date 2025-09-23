@@ -336,13 +336,13 @@ def api_pos_billing():
 
             cur.execute(detail_query, params)
 
-        # --- Part 1.5: Insert into ic_trans_shipment (Temporarily commented out due to missing table) ---
-        # shipment_query = """
-        # INSERT INTO ic_trans_shipment (
-        #     doc_no, doc_date, customer_code, wh_code, shelf_code, branch_code, creator_code, create_datetime
-        # ) VALUES (%s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
-        # """
-        # cur.execute(shipment_query, (doc_no, doc_date, customer_code, wh_code, shelf_code, branch_code, user_code))
+        # --- Part 1.5: Insert into ic_trans_shipment ---
+        shipment_query = """
+        INSERT INTO ic_trans_shipment (
+            doc_no, doc_date, cust_code, create_date_time_now
+        ) VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+        """
+        cur.execute(shipment_query, (doc_no, doc_date, customer_code))
 
 
         # --- Part 2: Add financial records in cb_trans and cb_trans_detail (New Logic) ---

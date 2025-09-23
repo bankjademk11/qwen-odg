@@ -4,15 +4,33 @@
 
 .product-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); /* เพิ่มความกว้างของ卡片 */
+  grid-auto-rows: 270px; /* ปรับความสูงให้สอดคล้องกับ卡片 */
   gap: 1rem;
   overflow-y: auto;
   max-height: 75vh;
+  align-content: start; /* Prevents stretching when fewer items in row */
+  justify-items: stretch; /* Ensure cards stretch to fill grid cells */
 }
 
 .product-card {
   cursor: pointer;
   transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+  height: 270px; /* เพิ่มความสูงเพื่อให้มีพื้นที่มากขึ้น */
+  min-height: 270px;
+  max-height: 270px;
+  overflow: hidden; /* Prevent content overflow */
+  border: 1px solid rgba(0, 0, 0, 0.125);
+  border-radius: 0.375rem;
+}
+
+.product-card .card-body {
+  display: flex;
+  flex-direction: column;
+  padding: 0.85rem; /* เพิ่ม padding ให้สมดุลกับขนาดที่เพิ่มขึ้น */
+  flex-grow: 1;
 }
 
 .product-card:hover {
@@ -21,30 +39,53 @@
 }
 
 .product-image {
-  height: 120px;
+  height: 110px; /* ปรับความสูงของภาพให้สมดุลกับขนาด卡片ที่เพิ่มขึ้น */
   object-fit: cover;
+  flex-shrink: 0;
+  width: 100%;
+  border-top-left-radius: calc(0.375rem - 1px);
+  border-top-right-radius: calc(0.375rem - 1px);
 }
 
 .product-name {
-    font-size: 0.9rem;
+    font-size: 0.95rem; /* เพิ่มขนาดตัวอักษรให้ชัดเจนขึ้น */
     font-weight: bold;
     margin-bottom: 0.25rem;
-    height: 40px; /* Fixed height for 2 lines */
+    height: 45px; /* เพิ่มความสูงเพื่อแสดง 2 บรรทัดได้ชัดเจนขึ้น */
     overflow: hidden;
+    flex-shrink: 0;
+    line-height: 1.4; /* ปรับ line height ให้อ่านง่ายขึ้น */
+    display: -webkit-box;
+    -webkit-line-clamp: 2; /* Limit to 2 lines */
+    -webkit-box-orient: vertical;
 }
 
 .product-code {
-    font-size: 0.8rem;
+    font-size: 0.85rem; /* เพิ่มขนาดตัวอักษรให้ชัดเจนขึ้น */
     color: #6c757d;
     margin-bottom: 0.25rem;
-    height: 20px; /* Fixed height */
+    height: 22px; /* ปรับความสูงให้เหมาะสม */
     overflow: hidden;
+    flex-shrink: 0;
 }
 
 .product-price {
-    font-size: 1rem;
+    font-size: 1.1rem; /* เพิ่มขนาดตัวอักษรราคาให้ชัดเจนขึ้น */
     color: #007bff;
     font-weight: bold;
+    margin-top: auto;
+    margin-bottom: 0.25rem;
+    flex-shrink: 0;
+}
+
+.product-stock {
+    font-size: 0.9rem; /* เพิ่มขนาดตัวอักษรให้ชัดเจนขึ้น */
+    margin-top: auto;
+    flex-shrink: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500; /* ทำให้ตัวหนังสือชัดเจนขึ้น */
 }
 
 .cart-header {

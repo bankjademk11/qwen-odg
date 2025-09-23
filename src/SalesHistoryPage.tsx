@@ -135,7 +135,7 @@ const SalesHistoryPage: React.FC = () => {
       </Container>
 
       {/* Receipt Detail Modal */}
-      <Modal show={showDetailModal} onHide={() => setShowDetailModal(false)} centered size="md">
+      <Modal show={showDetailModal} onHide={() => setShowDetailModal(false)} centered size="lg">
         <Modal.Header closeButton>
           <Modal.Title>ລາຍລະອຽດບິນ (Bill Details)</Modal.Title>
         </Modal.Header>
