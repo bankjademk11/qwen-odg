@@ -12,7 +12,7 @@ interface Product {
   item_name: string;
   price: number;
   image: string;
-  url_image: string; // เพิ่ม property สำหรับ URL รูปภาพ
+  url_image: string;
   stock_quantity: number;
   unit_code: string;
 }
@@ -36,8 +36,8 @@ interface Customer {
 const POSPageFlask = () => {
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState<boolean>(true); // Initial page load
-  const [loadingMore, setLoadingMore] = useState<boolean>(false); // Subsequent loads
+  const [loading, setLoading] = useState<boolean>(true);
+  const [loadingMore, setLoadingMore] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [offset, setOffset] = useState<number>(0);
   const [hasMore, setHasMore] = useState<boolean>(true);
@@ -53,12 +53,11 @@ const POSPageFlask = () => {
     }
     searchTimeout.current = setTimeout(() => {
       debouncedSearchTerm.current = searchTerm;
-      // Trigger product fetch with the debounced term
       setProducts([]);
       setOffset(0);
       setHasMore(true);
       fetchProducts(0);
-    }, 500); // 500ms debounce delay
+    }, 500);
 
     return () => {
       if (searchTimeout.current) {
@@ -154,7 +153,7 @@ const POSPageFlask = () => {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
-        setCustomers(data.list); // Assuming the API returns { list: [...] }
+        setCustomers(data.list);
       } catch (e: any) {
         console.error("Failed to fetch customers:", e);
       }
@@ -174,7 +173,6 @@ const POSPageFlask = () => {
         const data = await response.json();
         setLocations(data.list);
         
-        // Set default location if available
         if (data.list && data.list.length > 0) {
           setSelectedLocation(data.list[0].code);
         }
@@ -219,10 +217,10 @@ const POSPageFlask = () => {
         item_name: p.item_name,
         price: parseFloat(p.price) || 0,
         image: p.image,
-        url_image: p.url_image || '', // ดึงค่า url_image ถ้ามี
+        url_image: p.url_image || '',
         stock_quantity: parseInt(p.stock_quantity, 10) || 0,
         unit_code: p.unit_code,
-        qty: 1 // Default quantity
+        qty: 1
       }));
 
       setProducts(prev => currentOffset === 0 ? formattedProducts : [...prev, ...formattedProducts]);
@@ -245,7 +243,6 @@ const POSPageFlask = () => {
       }
       const data = await response.json();
       
-      // Format categories with count
       const formattedCategories: Category[] = [
         { name: 'All', count: data.list.reduce((sum: number, c: any) => sum + (c.count || 0), 0) },
         ...data.list.map((c: any) => ({ name: c.name_1, count: c.count }))
@@ -263,7 +260,6 @@ const POSPageFlask = () => {
   }, [fetchCategories]);
 
   useEffect(() => {
-    // Reset products when changing category, warehouse or location
     setProducts([]);
     setOffset(0);
     setHasMore(true);
@@ -316,7 +312,6 @@ const POSPageFlask = () => {
     }
   };
 
-  // Process billing
   const processBilling = async () => {
     if (cart.length === 0) {
       showCustomToast('ກະລຸນາເລືອກສິນຄ້າໃສ່ກະຕ່າກ່ອນ', 'warning');
@@ -333,7 +328,6 @@ const POSPageFlask = () => {
 
     setIsBilling(true);
     try {
-      // Step 1: Fetch the official document number from the backend
       const docNoResponse = await fetch('http://localhost:5000/docno');
       if (!docNoResponse.ok) {
         throw new Error('Failed to fetch document number.');
@@ -345,30 +339,28 @@ const POSPageFlask = () => {
         throw new Error('Invalid document number received from backend.');
       }
 
-      // Step 2: Prepare the billing data payload
       const loggedInUser = JSON.parse(localStorage.getItem('loggedInUser') || '{}');
-      const userCode = loggedInUser.code || 'SYSTEM'; // Fallback to 'SYSTEM' if not found
-      const userWhCode = loggedInUser.ic_wht || selectedWarehouse; // Use user's default or current selected
-      const userShelfCode = loggedInUser.ic_shelf || selectedLocation; // Use user's default or current selected
-      const userBranchCode = loggedInUser.ic_branch || '00'; // Assuming branch code is ic_branch, fallback to '00'
+      const userCode = loggedInUser.code || 'SYSTEM';
+      const userWhCode = loggedInUser.ic_wht || selectedWarehouse;
+      const userShelfCode = loggedInUser.ic_shelf || selectedLocation;
+      const userBranchCode = loggedInUser.ic_branch || '00';
 
       const billingData = {
         doc_no: docNo,
-        doc_date: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
+        doc_date: new Date().toISOString().split('T')[0],
         customer_code: selectedCustomer,
         total_amount: total,
         payment_method: paymentMethod,
         items: cart.map(item => ({
           ...item,
-          amount: item.price * item.qty // Ensure 'amount' is calculated
+          amount: item.price * item.qty
         })),
         user_code: userCode,
         wh_code: userWhCode,
         shelf_code: userShelfCode,
-        branch_code: userBranchCode, // Include branch_code
+        branch_code: userBranchCode,
       };
 
-      // Step 3: Send the billing data to the backend
       const billingResponse = await fetch('http://localhost:5000/posbilling', {
         method: 'POST',
         headers: {
@@ -384,7 +376,6 @@ const POSPageFlask = () => {
 
       const result = await billingResponse.json();
 
-      // Step 4: Handle successful billing (UI updates)
       const newReceipt = {
         doc_no: result.doc_no,
         doc_date: new Date().toLocaleString(),
@@ -398,13 +389,11 @@ const POSPageFlask = () => {
       setReceiptData(newReceipt);
       setShowReceiptModal(true);
 
-      // Save receipt to localStorage for history purposes
       const savedReceipts = JSON.parse(localStorage.getItem('posReceiptsFlask') || '[]');
       localStorage.setItem('posReceiptsFlask', JSON.stringify([newReceipt, ...savedReceipts]));
 
       showCustomToast(`ບິນໄດ້ຖືກບັນທຶກສຳເລັດ! ເລກບິນ: ${result.doc_no}`);
       
-      // Clear cart and payment info after successful billing
       setCart([]);
       setAmountReceived(0);
       setChange(0);
@@ -413,11 +402,10 @@ const POSPageFlask = () => {
 
     } catch (error: any) {
       console.error('Billing process failed:', error);
-      let errorMessage = 'ເກີດຂໍ້ຜິດພາດໃນການສ້າງບິນ'; // Default generic message
+      let errorMessage = 'ເກີດຂໍ້ຜິດພາດໃນການສ້າງບິນ';
       if (error.message) {
         errorMessage = error.message;
       } else if (error.response && error.response.json) {
-        // Try to parse error from backend response if it's an HTTP error
         const errorJson = await error.response.json();
         if (errorJson.error) {
           errorMessage = errorJson.error;
@@ -431,19 +419,14 @@ const POSPageFlask = () => {
 
   const getImageUrl = (product: Product) => {
     const imageBaseUrl = 'https://www.odienmall.com/static/image/product/';
-    // ถ้ามี url_image และไม่ใช่ค่าว่าง
     if (product.url_image && product.url_image.trim() !== '') {
-      // For robustness, check if it's already a full URL
       if (product.url_image.startsWith('http')) {
         return product.url_image;
       }
       return `${imageBaseUrl}${product.url_image}`;
     }
-    // Fallback if no image is specified
     return product.image || '/image/exam.jpg';
   };
-
-  // --- Bill Parking Handlers ---
 
   const handleShowRecallModal = async () => {
     try {
@@ -464,7 +447,7 @@ const POSPageFlask = () => {
 
     try {
       const newParkedBill = {
-        id: Date.now(), // Unique ID for the parked bill
+        id: Date.now(),
         reference_name: parkReferenceName,
         cart_data: cart,
         customer_code: selectedCustomer,
@@ -488,17 +471,15 @@ const POSPageFlask = () => {
   };
 
   const handleRecallBill = async (bill: any) => {
-    // Set cart and customer from the parked bill
     setCart(bill.cart_data || []);
     setSelectedCustomer(bill.customer_code || '');
     setCustomerSearch(bill.customer_search || '');
 
-    // Delete the parked bill from localStorage
     try {
       const savedParkedBills = JSON.parse(localStorage.getItem('posParkedBillsFlask') || '[]');
       const updatedParkedBills = savedParkedBills.filter((pb: any) => pb.id !== bill.id);
       localStorage.setItem('posParkedBillsFlask', JSON.stringify(updatedParkedBills));
-      setParkedBills(updatedParkedBills); // Update state immediately
+      setParkedBills(updatedParkedBills);
       showCustomToast('Bill recalled and removed from parked list!');
     } catch (error) {
       console.error('Could not delete parked bill from localStorage, but recalling locally.', error);
@@ -532,7 +513,10 @@ const POSPageFlask = () => {
               <Card.Header>
                 <Row className="align-items-center">
                     <Col xs={12} sm={5} className="mb-2 mb-sm-0">
-                        <h4 className="mb-0">ເລືອກສິນຄ້າ</h4>
+                        <h4 className="mb-0">
+                          <i className="bi bi-basket me-2"></i>
+                          ເລືອກສິນຄ້າ
+                        </h4>
                     </Col>
                     <Col xs={12} sm={7}>
                         <Form.Control
@@ -550,7 +534,10 @@ const POSPageFlask = () => {
                 <Row>
                   <Col md={6}>
                     <Form.Group className="mb-2">
-                      <Form.Label>ສາງ:</Form.Label>
+                      <Form.Label>
+                        <i className="bi bi-building me-1"></i>
+                        ສາງ:
+                      </Form.Label>
                       <Form.Select 
                         value={selectedWarehouse} 
                         onChange={(e) => setSelectedWarehouse(e.target.value)}
@@ -565,7 +552,10 @@ const POSPageFlask = () => {
                   </Col>
                   <Col md={6}>
                     <Form.Group className="mb-2">
-                      <Form.Label>ບ່ອນເກັບ:</Form.Label>
+                      <Form.Label>
+                        <i className="bi bi-geo-alt me-1"></i>
+                        ບ່ອນເກັບ:
+                      </Form.Label>
                       <Form.Select 
                         value={selectedLocation} 
                         onChange={(e) => setSelectedLocation(e.target.value)}
@@ -583,9 +573,14 @@ const POSPageFlask = () => {
               
               {/* Category Tabs with Scroll and Sticky Header */}
               <div className="category-tabs-wrapper">
-                <div className="p-3 border-bottom category-header-sticky">
-                  <Row className="align-items-center mb-2">
-                    <Col xs={5}><p className="mb-0 fw-bold">ໝວດໝູ່:</p></Col>
+                <div className="p-2 border-bottom category-header-sticky">
+                  <Row className="align-items-center mb-1">
+                    <Col xs={5}>
+                      <p className="mb-0 fw-bold" style={{ fontSize: '0.9rem' }}>
+                        <i className="bi bi-tags me-1"></i>
+                        ໝວດໝູ່:
+                      </p>
+                    </Col>
                     <Col xs={7}>
                       <Form.Control
                         type="text"
@@ -593,10 +588,11 @@ const POSPageFlask = () => {
                         value={categorySearchTerm}
                         onChange={(e) => setCategorySearchTerm(e.target.value)}
                         size="sm"
+                        style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
                       />
                     </Col>
                   </Row>
-                  {categoriesError && <Alert variant="warning">ບໍ່ສາມາດໂຫລດໝວດໝູ່ໄດ້.</Alert>}
+                  {categoriesError && <Alert variant="warning" className="p-2" style={{ fontSize: '0.8rem' }}>ບໍ່ສາມາດໂຫລດໝວດໝູ່ໄດ້.</Alert>}
                   <div className="category-tabs-container" ref={categoryTabsRef}>
                     <Nav variant="pills" className="category-tabs flex-nowrap overflow-auto">
                       {categories
@@ -604,15 +600,16 @@ const POSPageFlask = () => {
                           category.name.toLowerCase().includes(categorySearchTerm.toLowerCase())
                         )
                         .map((category, idx) => (
-                        <Nav.Item key={idx} className="me-2 mb-2">
+                        <Nav.Item key={idx} className="me-1 mb-1">
                           <Nav.Link
                             eventKey={category.name}
                             active={selectedCategory === category.name}
                             onClick={() => setSelectedCategory(category.name)}
                             className={`category-tab ${selectedCategory === category.name ? "active" : ""}`}
+                            style={{ fontSize: '0.8rem' }}
                           >
                             <span className="category-name">{category.name}</span>
-                            <span className="category-count badge bg-secondary ms-2">{category.count}</span>
+                            <span className="category-count badge bg-secondary ms-1">{category.count}</span>
                           </Nav.Link>
                         </Nav.Item>
                       ))}
@@ -632,14 +629,29 @@ const POSPageFlask = () => {
                   <Alert variant="danger">ມີຂໍ້ຜິດພາດ: {error}</Alert>
                 ) : (
                   <>
-                    {products.map(product => (
-                      <Card key={product.item_code} className="product-card" onClick={() => addToCart(product)}>
+                    {products.map((product, index) => (
+                      <Card key={`${product.item_code}-${index}`} className="product-card" onClick={() => addToCart(product)}>
+                        {product.stock_quantity <= 5 && (
+                          <span className={`badge-stock ${product.stock_quantity <= 2 ? 'badge-low-stock' : ''}`}>
+                            <i className="bi bi-exclamation-triangle-fill me-1"></i>
+                            {product.stock_quantity}
+                          </span>
+                        )}
                         <Card.Img variant="top" src={getImageUrl(product)} className="product-image"/>
                         <Card.Body className="text-center">
                           <Card.Title as="div" className="product-name">{product.item_name}</Card.Title>
-                          <Card.Text className="product-code">{product.item_code} ({product.unit_code})</Card.Text>
-                          <Card.Text className="product-price">{product.price.toLocaleString()} ₭</Card.Text>
-                          <Card.Text className="product-stock text-muted"><small>ຄົງເຫຼືອ: {product.stock_quantity}</small></Card.Text>
+                          <Card.Text className="product-code">
+                            <i className="bi bi-upc me-1"></i>
+                            {product.item_code} ({product.unit_code})
+                          </Card.Text>
+                          <Card.Text className="product-price">
+                            <i className="bi bi-cash me-1"></i>
+                            {product.price.toLocaleString()} ₭
+                          </Card.Text>
+                          <Card.Text className={`product-stock ${product.stock_quantity <= 5 ? 'low' : ''}`}>
+                            <i className="bi bi-box-seam me-1"></i>
+                            <small>ຄົງເຫຼືອ: {product.stock_quantity}</small>
+                          </Card.Text>
                         </Card.Body>
                       </Card>
                     ))}
@@ -664,7 +676,10 @@ const POSPageFlask = () => {
             {/* Customer Selection */}
             <Card className="mb-3">
               <Card.Header>
-                <h5 className="mb-0">ຂໍ້ມູນລູກຄ້າ</h5>
+                <h5 className="mb-0">
+                  <i className="bi bi-person-lines-fill me-2"></i>
+                  ຂໍ້ມູນລູກຄ້າ
+                </h5>
               </Card.Header>
               <Card.Body>
                 <div className="customer-search-wrapper">
@@ -680,7 +695,7 @@ const POSPageFlask = () => {
                       }
                     }}
                     onFocus={() => setIsCustomerDropdownOpen(true)}
-                    onBlur={() => setTimeout(() => setIsCustomerDropdownOpen(false), 200)} // Delay to allow click
+                    onBlur={() => setTimeout(() => setIsCustomerDropdownOpen(false), 200)}
                   />
                   {isCustomerDropdownOpen && (
                     <div className="customer-search-results">
@@ -689,7 +704,7 @@ const POSPageFlask = () => {
                           c.name.toLowerCase().includes(customerSearch.toLowerCase()) || 
                           c.code.toLowerCase().includes(customerSearch.toLowerCase())
                         )
-                        .slice(0, 50) // Limit results to 50
+                        .slice(0, 50)
                         .map(customer => (
                           <div
                             key={customer.code}
@@ -700,7 +715,13 @@ const POSPageFlask = () => {
                               setIsCustomerDropdownOpen(false);
                             }}
                           >
-                            {customer.name} ({customer.code})
+                            <div className="d-flex align-items-center">
+                              <i className="bi bi-person-circle me-2"></i>
+                              <div>
+                                <div className="fw-bold">{customer.name}</div>
+                                <small className="text-muted">ID: {customer.code}</small>
+                              </div>
+                            </div>
                           </div>
                         ))}
                     </div>
@@ -712,41 +733,79 @@ const POSPageFlask = () => {
             {/* Cart */}
             <Card>
               <Card.Header>
-                <h4 className="mb-0">ກະຕ່າສິນຄ້າ</h4>
+                <h4 className="mb-0">
+                  <i className="bi bi-cart-check me-2"></i>
+                  ກະຕ່າສິນຄ້າ
+                </h4>
               </Card.Header>
               <div className="p-3 border-bottom">
-                <div className="d-grid gap-2">
-                  <Button variant="primary" size="lg" disabled={cart.length === 0 || !selectedCustomer || isBilling} onClick={processBilling}>
-                    {isBilling ? (
-                      <>
-                        <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
-                        <span className="ms-2">ກຳລັງປະມວນຜົນ...</span>
-                      </>
-                    ) : (
-                      'ຈ່າຍເງິນ'
-                    )}
+                <div className="action-buttons">
+                  <Button 
+                    variant="success" 
+                    disabled={cart.length === 0 || !selectedCustomer || isBilling} 
+                    onClick={processBilling}
+                    title="Process payment for items in cart"
+                  >
+                    <i className="bi bi-cash-coin"></i>
+                    ຈ່າຍເງິນ
                   </Button>
-                  <Row>
-                    <Col>
-                      <Button variant="info" className="w-100" disabled={cart.length === 0} onClick={() => setShowParkModal(true)}>
-                        ພັກບິນ (Park Bill)
-                      </Button>
-                    </Col>
-                    <Col>
-                      <Button variant="secondary" className="w-100" onClick={handleShowRecallModal}>
-                        ເອີ້ນບິນ (Recall Bill)
-                      </Button>
-                    </Col>
-                  </Row>
-                  <Button variant="outline-danger" size="lg" onClick={() => {
-                    setCart([]);
-                    setSelectedCustomer('');
-                    setCustomerSearch('');
-                  }}>
+                  <Button 
+                    variant="info" 
+                    disabled={cart.length === 0} 
+                    onClick={() => setShowParkModal(true)}
+                    title="Park this bill for later"
+                  >
+                    <i className="bi bi-pause-circle"></i>
+                    ພັກບິນ
+                  </Button>
+                  <Button 
+                    variant="secondary" 
+                    onClick={handleShowRecallModal}
+                    title="Recall a parked bill"
+                  >
+                    <i className="bi bi-arrow-counterclockwise"></i>
+                    ເອີ້ນບິນ
+                  </Button>
+                  <Button 
+                    variant="danger" 
+                    onClick={() => {
+                      setCart([]);
+                      setSelectedCustomer('');
+                      setCustomerSearch('');
+                    }}
+                    title="Clear cart and customer selection"
+                  >
+                    <i className="bi bi-x-circle"></i>
                     ຍົກເລີກ
                   </Button>
                 </div>
+                
+                {/* Payment Method Selection */}
+                <Form.Group className="my-3">
+                  <Form.Label className="fw-bold">
+                    <i className="bi bi-credit-card me-1"></i>
+                    ວິທີຊຳລະເງິນ:
+                  </Form.Label>
+                  <Form.Select 
+                    value={paymentMethod} 
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                  >
+                    <option value="cash">
+                      <i className="bi bi-cash"></i>
+                      ເງິນສົດ (Cash)
+                    </option>
+                    <option value="transfer">
+                      <i className="bi bi-bank"></i>
+                      ໂອນຈ່າຍ (Transfer)
+                    </option>
+                    <option value="card">
+                      <i className="bi bi-credit-card"></i>
+                      ບັດເຄຣດິດ (Credit Card)
+                    </option>
+                  </Form.Select>
+                </Form.Group>
               </div>
+              
               <Card.Body className="d-flex flex-column">
                 <ListGroup variant="flush" className="flex-grow-1 cart-items-scrollable">
                   {isCartExpanded ? (
@@ -754,68 +813,98 @@ const POSPageFlask = () => {
                       <ListGroup.Item key={item.item_code} className="d-flex justify-content-between align-items-center">
                         <div>
                           <div className="fw-bold">{item.item_name}</div>
-                          <div>{item.price.toLocaleString()} ₭</div>
+                          <div>
+                            <i className="bi bi-cash me-1"></i>
+                            {item.price.toLocaleString()} ₭
+                          </div>
                         </div>
                         <div className="d-flex align-items-center">
-                          <Button variant="outline-secondary" size="sm" onClick={() => updateQuantity(item.item_code, item.qty - 1)}>-</Button>
-                          <span className="mx-2">{item.qty}</span>
-                          <Button variant="outline-secondary" size="sm" onClick={() => updateQuantity(item.item_code, item.qty + 1)}>+</Button>
+                          <Button variant="outline-secondary" size="sm" onClick={() => updateQuantity(item.item_code, item.qty - 1)}>
+                            <i className="bi bi-dash"></i>
+                          </Button>
+                          <span className="mx-2 fw-bold">{item.qty}</span>
+                          <Button variant="outline-secondary" size="sm" onClick={() => updateQuantity(item.item_code, item.qty + 1)}>
+                            <i className="bi bi-plus"></i>
+                          </Button>
                         </div>
                       </ListGroup.Item>
                     ))
                   ) : (
-                    <p className="text-center text-muted mt-3">{cart.length === 0 ? 'ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ' : `${cart.length} ລາຍການໃນກະຕ່າ`}</p>
+                    <p className="text-center text-muted mt-3">
+                      {cart.length === 0 ? (
+                        <>
+                          <i className="bi bi-cart-x fs-1 d-block mb-2"></i>
+                          ຍັງບໍ່ມີສິນຄ້າໃນກະຕ່າ
+                        </>
+                      ) : (
+                        <>
+                          <i className="bi bi-cart fs-1 d-block mb-2"></i>
+                          {cart.length} ລາຍການໃນກະຕ່າ
+                        </>
+                      )}
+                    </p>
                   )}
                 </ListGroup>
                 <div className="text-center mt-2">
                   {cart.length > 0 && (
                     <Button variant="link" onClick={() => setIsCartExpanded(!isCartExpanded)}>
-                      {isCartExpanded ? 'ຍຸບລາຍການ' : 'ຂະຫຍາຍລາຍການ'}
+                      {isCartExpanded ? (
+                        <>
+                          <i className="bi bi-chevron-up me-1"></i>
+                          ຍຸບລາຍການ
+                        </>
+                      ) : (
+                        <>
+                          <i className="bi bi-chevron-down me-1"></i>
+                          ຂະຫຍາຍລາຍການ
+                        </>
+                      )}
                     </Button>
                   )}
                 </div>
+                
                 <div className="mt-auto">
-                  <hr />
-                  <div className="d-flex justify-content-between fs-4 fw-bold">
-                    <span>ລວມທັງໝົດ:</span>
-                    <span>{total.toLocaleString()} ₭</span>
+                  <div className="payment-summary">
+                    <div className="summary-item">
+                      <span>
+                        <i className="bi bi-receipt me-1"></i>
+                        ຈຳນວນລາຍການ:
+                      </span>
+                      <span className="fw-bold">{cart.reduce((sum, item) => sum + item.qty, 0)}</span>
+                    </div>
+                    <div className="summary-item">
+                      <span>
+                        <i className="bi bi-cash me-1"></i>
+                        ລວມທັງໝົດ:
+                      </span>
+                      <span className="fw-bold">{total.toLocaleString()} ₭</span>
+                    </div>
+                    <div className="summary-item">
+                      <span>
+                        <i className="bi bi-wallet2 me-1"></i>
+                        ເງິນທີ່ຮັບມາ:
+                      </span>
+                      <span>
+                        <Form.Control
+                          type="number"
+                          placeholder="0"
+                          value={amountReceived === 0 ? '' : amountReceived}
+                          onChange={(e) => setAmountReceived(parseFloat(e.target.value) || 0)}
+                          min="0"
+                          size="sm"
+                          className="d-inline-block w-auto"
+                        />
+                      </span>
+                    </div>
+                    <div className="summary-item total">
+                      <span>
+                        <i className="bi bi-cash-stack me-1"></i>
+                        ເງິນທອນ:
+                      </span>
+                      <span>{change.toLocaleString()} ₭</span>
+                    </div>
                   </div>
-
-                  {/* Amount Received Input */}
-                  <Form.Group className="my-3">
-                    <Form.Label className="fw-bold">ເງິນທີ່ຮັບມາ:</Form.Label>
-                    <Form.Control
-                      type="number"
-                      placeholder="0"
-                      value={amountReceived === 0 ? '' : amountReceived}
-                      onChange={(e) => setAmountReceived(parseFloat(e.target.value) || 0)}
-                      min="0"
-                    />
-                  </Form.Group>
-
-                  {/* Change Display */}
-                  <div className="d-flex justify-content-between fs-4 fw-bold text-success mb-3">
-                    <span>ເງິນທອນ:</span>
-                    <span>{change.toLocaleString()} ₭</span>
-                  </div>
-
-                  <div className="d-flex justify-content-between fs-4 fw-bold">
-                  </div>
-
-                  {/* Payment Method Selection */}
-                  <Form.Group className="my-3">
-                      <Form.Label className="fw-bold">ວິທີຊຳລະເງິນ:</Form.Label>
-                      <Form.Select 
-                        value={paymentMethod} 
-                        onChange={(e) => setPaymentMethod(e.target.value)}
-                      >
-                        <option value="cash">ເງິນສົດ (Cash)</option>
-                        <option value="transfer">ໂອນຈ່າຍ (Transfer)</option>
-                        <option value="card">ບັດເຄຣດິດ (Credit Card)</option>
-                      </Form.Select>
-                    </Form.Group>
-
-                  </div>
+                </div>
               </Card.Body>
             </Card>
           </Col>
@@ -827,11 +916,17 @@ const POSPageFlask = () => {
       {/* Park Bill Modal */}
       <Modal show={showParkModal} onHide={() => setShowParkModal(false)} centered>
         <Modal.Header closeButton>
-          <Modal.Title>ພັກບິນ (Park Bill)</Modal.Title>
+          <Modal.Title>
+            <i className="bi bi-pause-circle me-2"></i>
+            ພັກບິນ (Park Bill)
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form.Group>
-            <Form.Label>ຊື່ອ້າງອີງ (Reference Name)</Form.Label>
+            <Form.Label>
+              <i className="bi bi-tag me-1"></i>
+              ຊື່ອ້າງອີງ (Reference Name)
+            </Form.Label>
             <Form.Control
               type="text"
               placeholder="ຕົວຢ່າງ: ລູກຄ້າເສື້ອແດງ, ໂຕະ 5"
@@ -843,9 +938,11 @@ const POSPageFlask = () => {
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowParkModal(false)}>
+            <i className="bi bi-x-circle me-1"></i>
             ຍົກເລີກ
           </Button>
           <Button variant="primary" onClick={handleParkBill}>
+            <i className="bi bi-check-circle me-1"></i>
             ຢືນຢັນການພັກບິນ
           </Button>
         </Modal.Footer>
@@ -854,7 +951,10 @@ const POSPageFlask = () => {
       {/* Recall Bill Modal */}
       <Modal show={showRecallModal} onHide={() => setShowRecallModal(false)} centered size="lg">
         <Modal.Header closeButton>
-          <Modal.Title>ລາຍການບິນທີ່ພັກໄວ້ (Recall Bill)</Modal.Title>
+          <Modal.Title>
+            <i className="bi bi-arrow-counterclockwise me-2"></i>
+            ລາຍການບິນທີ່ພັກໄວ້ (Recall Bill)
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <ListGroup>
@@ -862,23 +962,36 @@ const POSPageFlask = () => {
               parkedBills.map(bill => (
                 <ListGroup.Item key={bill.id} action className="d-flex justify-content-between align-items-center">
                   <div>
-                    <div className="fw-bold">{bill.reference_name}</div>
+                    <div className="fw-bold">
+                      <i className="bi bi-tag me-1"></i>
+                      {bill.reference_name}
+                    </div>
                     <small className="text-muted">
-                      ເວລາ: {bill.time} | ລູກຄ້າ: {bill.customer_search || 'ບໍ່ມີ'} | {bill.cart_data.length} ລາຍການ
+                      <i className="bi bi-clock me-1"></i>
+                      ເວລາ: {bill.time} | 
+                      <i className="bi bi-person me-1 ms-2"></i>
+                      ລູກຄ້າ: {bill.customer_search || 'ບໍ່ມີ'} | 
+                      <i className="bi bi-list-task me-1 ms-2"></i>
+                      {bill.cart_data.length} ລາຍການ
                     </small>
                   </div>
                   <Button variant="success" onClick={() => handleRecallBill(bill)}>
+                    <i className="bi bi-arrow-counterclockwise me-1"></i>
                     ເອີ້ນບິນນີ້
                   </Button>
                 </ListGroup.Item>
               ))
             ) : (
-              <p className="text-center text-muted">ບໍ່ມີບິນທີ່ພັກໄວ້</p>
+              <p className="text-center text-muted">
+                <i className="bi bi-inbox fs-1 d-block mb-2"></i>
+                ບໍ່ມີບິນທີ່ພັກໄວ້
+              </p>
             )}
           </ListGroup>
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowRecallModal(false)}>
+            <i className="bi bi-x-circle me-1"></i>
             ປິດ
           </Button>
         </Modal.Footer>
@@ -887,42 +1000,84 @@ const POSPageFlask = () => {
       {/* Receipt Modal */}
       <Modal show={showReceiptModal} onHide={() => setShowReceiptModal(false)} centered size="lg">
         <Modal.Header closeButton>
-          <Modal.Title>ໃບຮັບເງິນ (Receipt)</Modal.Title>
+          <Modal.Title>
+            <i className="bi bi-receipt me-2"></i>
+            ໃບຮັບເງິນ (Receipt)
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {receiptData && (
             <div>
-              <p><strong>ເລກບິນ:</strong> {receiptData.doc_no}</p>
-              <p><strong>ວັນທີ:</strong> {receiptData.doc_date}</p>
-              <p><strong>ລູກຄ້າ:</strong> {receiptData.customer_name}</p>
+              <div className="text-center mb-4">
+                <h5 className="fw-bold">ODIEN MALL</h5>
+                <p className="text-muted">ໃບຮັບເງິນ / RECEIPT</p>
+              </div>
+              
+              <div className="d-flex justify-content-between mb-3">
+                <div>
+                  <p className="mb-1">
+                    <i className="bi bi-hash me-1"></i>
+                    <strong>ເລກບິນ:</strong> {receiptData.doc_no}
+                  </p>
+                  <p className="mb-1">
+                    <i className="bi bi-calendar me-1"></i>
+                    <strong>ວັນທີ:</strong> {receiptData.doc_date}
+                  </p>
+                </div>
+                <div>
+                  <p className="mb-1">
+                    <i className="bi bi-person me-1"></i>
+                    <strong>ລູກຄ້າ:</strong> {receiptData.customer_name}
+                  </p>
+                  <p className="mb-1">
+                    <i className="bi bi-credit-card me-1"></i>
+                    <strong>ຊຳລະຜ່ານ:</strong> {receiptData.payment_method === 'cash' ? 'ເງິນສົດ' : receiptData.payment_method === 'transfer' ? 'ໂອນຈ່າຍ' : 'ບັດເຄຣດິດ'}
+                  </p>
+                </div>
+              </div>
+              
               <hr />
-              <h6>ລາຍການສິນຄ້າ:</h6>
-              <ListGroup variant="flush">
+              
+              <h6>
+                <i className="bi bi-list-check me-1"></i>
+                ລາຍການສິນຄ້າ:
+              </h6>
+              
+              <ListGroup variant="flush" className="mb-3">
                 {receiptData.items.map((item: CartItem) => (
                   <ListGroup.Item key={item.item_code} className="d-flex justify-content-between">
-                    <span>{item.item_name} x {item.qty}</span>
-                    <span>{item.price.toLocaleString()} ₭</span>
+                    <div>
+                      <span>{item.item_name} x {item.qty}</span>
+                    </div>
+                    <span>{(item.price * item.qty).toLocaleString()} ₭</span>
                   </ListGroup.Item>
                 ))}
               </ListGroup>
-              <hr />
-              <div className="d-flex justify-content-between fw-bold">
-                <span>ລວມທັງໝົດ:</span>
-                <span>{receiptData.total_amount.toLocaleString()} ₭</span>
+              
+              <div className="payment-summary">
+                <div className="summary-item">
+                  <span>ລວມທັງໝົດ:</span>
+                  <span className="fw-bold">{receiptData.total_amount.toLocaleString()} ₭</span>
+                </div>
+                <div className="summary-item">
+                  <span>ເງິນທີ່ຮັບມາ:</span>
+                  <span>{receiptData.amount_received.toLocaleString()} ₭</span>
+                </div>
+                <div className="summary-item total">
+                  <span>ເງິນທອນ:</span>
+                  <span>{receiptData.change_amount.toLocaleString()} ₭</span>
+                </div>
               </div>
-              <div className="d-flex justify-content-between">
-                <span>ເງິນທີ່ຮັບມາ:</span>
-                <span>{receiptData.amount_received.toLocaleString()} ₭</span>
-              </div>
-              <div className="d-flex justify-content-between fw-bold text-success">
-                <span>ເງິນທອນ:</span>
-                <span>{receiptData.change_amount.toLocaleString()} ₭</span>
+              
+              <div className="text-center mt-4 text-muted">
+                <small>ຂອບໃຈສຳລັບການຊື້ຂາຍຂອງທ່ານ!</small>
               </div>
             </div>
           )}
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowReceiptModal(false)}>
+            <i className="bi bi-x-circle me-1"></i>
             ປິດ
           </Button>
           <Button variant="primary" onClick={() => {
@@ -931,6 +1086,7 @@ const POSPageFlask = () => {
               window.open('/receipt-print', '_blank');
             }
           }}>
+            <i className="bi bi-printer me-1"></i>
             ພິມ
           </Button>
         </Modal.Footer>
@@ -939,7 +1095,10 @@ const POSPageFlask = () => {
       <ToastContainer position="top-end" className="p-3" style={{ zIndex: 1 }}>
         <Toast onClose={() => setShowToast(false)} show={showToast} delay={3000} autohide bg={toastVariant}>
           <Toast.Body className={toastVariant === 'danger' ? 'text-white' : ''}>
-            {toastMessage}
+            <div className="d-flex align-items-center">
+              <i className={`bi ${toastVariant === 'success' ? 'bi-check-circle' : toastVariant === 'warning' ? 'bi-exclamation-triangle' : 'bi-x-circle'} me-2`}></i>
+              {toastMessage}
+            </div>
           </Toast.Body>
         </Toast>
       </ToastContainer>

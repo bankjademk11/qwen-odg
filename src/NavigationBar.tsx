@@ -34,9 +34,14 @@ function NavigationBar() {
   };
 
   return (
-    <Navbar variant="dark" expand="lg" style={{ backgroundColor: '#6fa8dc', padding: '0.75rem 1.5rem' }}>
+    // Updated navbar to use consistent colors with POS theme
+    <Navbar expand="lg" style={{ 
+      background: 'linear-gradient(120deg, #007bff, #0056b3)', 
+      padding: '0.75rem 1.5rem',
+      boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)'
+    }}>
       <Container fluid>
-        <Navbar.Brand as={Link} to="/" className="fw-bold d-flex align-items-center" style={{ padding: '0.25rem 0' }}>
+        <Navbar.Brand as={Link} to="/" className="fw-bold d-flex align-items-center text-white" style={{ padding: '0.25rem 0' }}>
           <img 
             src="/image/logo.png" 
             alt="Logo" 
@@ -46,26 +51,40 @@ function NavigationBar() {
         <Navbar.Toggle />
         <Navbar.Collapse className="justify-content-end">
           <Nav className="align-items-center">
-            {/* <Nav.Link as={Link} to="/pos" className="mx-2 px-3 py-2 rounded bg-success text-white fw-bold" style={{ fontSize: '1rem' }}>
-              <i className="bi bi-display"></i> ລະບົບ POS (FastAPI)
-            </Nav.Link> */}
-            <Nav.Link as={Link} to="/pos-flask" className="mx-2 px-3 py-2 rounded bg-warning text-dark fw-bold" style={{ fontSize: '1rem' }}>
+            <Nav.Link as={Link} to="/pos-flask" className="mx-2 px-3 py-2 rounded text-white fw-bold" style={{ 
+              fontSize: '1rem',
+              backgroundColor: 'rgba(255, 255, 255, 0.15)',
+              backdropFilter: 'blur(5px)',
+              border: '1px solid rgba(255, 255, 255, 0.2)'
+            }}>
               <i className="bi bi-display"></i> ລະບົບ POS
             </Nav.Link>
-            <Nav.Link as={Link} to="/products" className="mx-2 px-3 py-2 rounded bg-light text-primary fw-bold" style={{ fontSize: '1rem' }}>
+            <Nav.Link as={Link} to="/products" className="mx-2 px-3 py-2 rounded text-white fw-bold" style={{ 
+              fontSize: '1rem',
+              backgroundColor: 'rgba(255, 255, 255, 0.15)',
+              backdropFilter: 'blur(5px)',
+              border: '1px solid rgba(255, 255, 255, 0.2)'
+            }}>
               <i className="bi bi-list"></i> ລາຍການສິນຄ້າ
             </Nav.Link>
             
-            <Nav.Link as={Link} to="/transfers" className="mx-2 px-3 py-2 rounded bg-light text-primary fw-bold" style={{ fontSize: '1rem' }}>
+            <Nav.Link as={Link} to="/transfers" className="mx-2 px-3 py-2 rounded text-white fw-bold" style={{ 
+              fontSize: '1rem',
+              backgroundColor: 'rgba(255, 255, 255, 0.15)',
+              backdropFilter: 'blur(5px)',
+              border: '1px solid rgba(255, 255, 255, 0.2)'
+            }}>
               <i className="bi bi-cart-plus"></i> ຄຳຂໍເຕີມສິນຄ້າ
-            </Nav.Link>
-            <Nav.Link as={Link} to="/sales-history" className="mx-2 px-3 py-2 rounded bg-light text-primary fw-bold" style={{ fontSize: '1rem' }}>
-              <i className="bi bi-clock-history"></i> ປະຫວັດການຂາຍ
             </Nav.Link>
             {
               isLoggedIn ? (
                 <Dropdown as={Nav.Item} align="end">
-                  <Dropdown.Toggle as={Nav.Link} className="mx-2 px-3 py-2 rounded bg-light text-primary fw-bold" style={{ fontSize: '1rem' }}>
+                  <Dropdown.Toggle as={Nav.Link} className="mx-2 px-3 py-2 rounded text-white fw-bold" style={{ 
+                    fontSize: '1rem',
+                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                    backdropFilter: 'blur(5px)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)'
+                  }}>
                     <i className="bi bi-person-circle me-2"></i> {userName}
                   </Dropdown.Toggle>
                   <Dropdown.Menu>
@@ -75,7 +94,7 @@ function NavigationBar() {
                   </Dropdown.Menu>
                 </Dropdown>
               ) : (
-                <Nav.Link as={Link} to="/login" className="ms-3 text-light" style={{ fontSize: '1rem' }}>
+                <Nav.Link as={Link} to="/login" className="ms-3 text-white fw-bold" style={{ fontSize: '1rem' }}>
                   <i className="bi bi-person-circle me-2"></i> ເຂົ້າສູ່ລະບົບ
                 </Nav.Link>
               )
