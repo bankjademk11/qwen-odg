@@ -282,18 +282,92 @@ def api_pos_billing():
         branch_code = data.get('branch_code', '00') # Use user's branch or default
         payment_method = data.get('payment_method', 'cash') # Get payment_method, default to 'cash'
 
+        # Fetch side_code and department_code from erp_user based on user_code
+        user_info_query = "SELECT side, department FROM erp_user WHERE code = %s LIMIT 1"
+        cur.execute(user_info_query, (user_code,))
+        user_info_result = cur.fetchone()
+        
+        side_code = user_info_result['side'] if user_info_result and user_info_result['side'] is not None else ''
+        department_code = user_info_result['department'] if user_info_result and user_info_result['department'] is not None else ''
+
+        # Extract additional fields for ic_trans from payload
+        remark = data.get('remark', '')
+
+        # Define constants for ic_trans
+        INQUIRY_TYPE_IC_TRANS = 1
+        VAT_TYPE_IC_TRANS = 2
+        VAT_RATE_IC_TRANS = 10
+        CURRENCY_CODE_IC_TRANS = '02' # LAK
+
+        # Fetch exchange rate for LAK (code '02')
+        exchange_rate_query = "SELECT COALESCE(exchange_rate_present, 0) FROM erp_currency WHERE code='02' LIMIT 1"
+        cur.execute(exchange_rate_query)
+        exchange_rate_result = cur.fetchone()
+        exchange_rate_lak = float(exchange_rate_result['coalesce']) if exchange_rate_result and exchange_rate_result['coalesce'] is not None else 0.0015673 # Default to example rate if not found
+
+        # Calculate total amounts in primary currency (Baht)
+        total_amount_lak = float(total_amount) # total_amount from payload is in LAK
+        total_amount_baht = total_amount_lak * exchange_rate_lak
+        total_value_baht = total_amount_baht # Assuming total_value and total_amount are the same for now
+
+        # Apply rounding to 2 decimal places for ic_trans monetary values
+        total_amount_lak = round(total_amount_lak, 2)
+        total_amount_baht = round(total_amount_baht, 2)
+        total_value_baht = round(total_value_baht, 2)
+
         # --- ic_trans INSERT ---
         trans_query = """
         INSERT INTO ic_trans (
             trans_type, trans_flag, doc_date, doc_no, doc_time,
             branch_code, project_code, sale_code, doc_format_code,
-            cust_code, total_amount_2, creator_code, create_datetime
-        ) VALUES (2, 44, %s, %s, LEFT(CAST(CURRENT_TIME AS VARCHAR), 5), %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+            cust_code, total_amount_2, creator_code, create_datetime,
+            side_code, department_code, inquiry_type, vat_type, vat_rate,
+            currency_code, exchange_rate, total_value, total_amount, remark, cashier_code,
+            total_value_2
+        ) VALUES (
+            2, 44, %s, %s, LEFT(CAST(CURRENT_TIME AS VARCHAR), 5),
+            %s, %s, %s, %s,
+            %s, %s, %s, CURRENT_TIMESTAMP,
+            %s, %s, %s, %s, %s,
+            %s, %s, %s, %s, %s, %s,
+            %s
+        )
         """
-        cur.execute(trans_query, (doc_date, doc_no, branch_code, '', user_code, 'POS', customer_code, float(total_amount), user_code))
+        cur.execute(trans_query, (
+            doc_date, doc_no,
+            branch_code, '', user_code, 'POS',
+            customer_code, total_amount_lak, user_code,
+            side_code, department_code, INQUIRY_TYPE_IC_TRANS, VAT_TYPE_IC_TRANS, VAT_RATE_IC_TRANS,
+            CURRENCY_CODE_IC_TRANS, exchange_rate_lak, total_value_baht, total_amount_baht, remark, user_code,
+            total_amount_lak
+        ))
 
         # --- ic_trans_detail INSERT ---
         for idx, item in enumerate(items):
+            item_price_lak = float(item['price'])
+            item_amount_lak = float(item['amount'])
+            item_price_baht = item_price_lak * exchange_rate_lak
+            item_sum_amount_baht = item_amount_lak * exchange_rate_lak
+
+            # Apply rounding to 2 decimal places for monetary values
+            item_price_lak = round(item_price_lak, 2)
+            item_amount_lak = round(item_amount_lak, 2)
+            item_price_baht = round(item_price_baht, 2)
+            item_sum_amount_baht = round(item_sum_amount_baht, 2)
+
+            # Fetch average_cost for the item
+            average_cost_query = "SELECT COALESCE(average_cost, 0) FROM ic_inventory WHERE code = %s LIMIT 1"
+            cur.execute(average_cost_query, (item['item_code'],))
+            average_cost_result = cur.fetchone()
+            fetched_average_cost = float(average_cost_result['coalesce']) if average_cost_result and average_cost_result['coalesce'] is not None else 0.0
+
+            item_qty = float(item['qty'])
+            calculated_sum_of_cost = fetched_average_cost * item_qty
+
+            # Apply rounding to 4 decimal places for cost values
+            fetched_average_cost = round(fetched_average_cost, 4)
+            calculated_sum_of_cost = round(calculated_sum_of_cost, 4)
+
             detail_query = """
             INSERT INTO ic_trans_detail(
                 trans_type,trans_flag,doc_date,doc_no,cust_code,inquiry_type,
@@ -308,32 +382,34 @@ def api_pos_billing():
                 doc_date_calc,doc_time_calc,
                 sale_code,sale_group, creator_code, create_datetime
             ) VALUES (
-                %s, %s, %s, %s, %s, %s, 
-                %s, %s, %s, %s, 
-                %s, %s, 
-                0, 0, 
-                '', 0, 
-                0, 0, 
-                0, 0, 
-                %s, %s, 
-                %s, %s, %s, %s, 1, 1, -1, 0, 0, %s, LEFT(CAST(CURRENT_TIME AS VARCHAR), 5), 0, 
-                %s, '', 
-                %s, '', %s, CURRENT_TIMESTAMP
-            )
-            """
-            
+                %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s,
+                %s, %s, -- price, sum_amount (Baht)
+                %s, %s, -- price_2, sum_amount_2 (Kip)
+                '', 0,
+                %s, %s, -- average_cost, sum_of_cost
+                %s, %s, -- average_cost_1, sum_of_cost_1
+                %s, %s, -- price_exclude_vat, sum_amount_exclude_vat (Baht)
+                                %s, %s, %s, %s, 1, 1, -1, 0, 0, %s, LEFT(CAST(CURRENT_TIME AS VARCHAR), 5), 0,
+                                %s, LEFT(CAST(CURRENT_TIME AS VARCHAR), 5),
+                                %s, '', %s, CURRENT_TIMESTAMP
+                            )
+                            """
+                
             params = (
-                2, 44, doc_date, doc_no, customer_code, 1, 
-                item['item_code'], item['item_name'], item['unit_code'], item['qty'],
-                item['price'], item['amount'],
-                item['price'], item['amount'], # price_exclude_vat, sum_amount_exclude_vat
+                2, 44, doc_date, doc_no, customer_code, 1,
+                item['item_code'], item['item_name'], item['unit_code'], item_qty,
+                item_price_baht, item_sum_amount_baht, # price, sum_amount
+                item_price_lak, item_amount_lak, # price_2, sum_amount_2
+                fetched_average_cost, calculated_sum_of_cost, # average_cost, sum_of_cost
+                fetched_average_cost, calculated_sum_of_cost, # average_cost_1, sum_of_cost_1
+                item_price_baht, item_sum_amount_baht, # price_exclude_vat, sum_amount_exclude_vat
                 idx + 1, branch_code, wh_code, shelf_code, # line_number, branch, wh, shelf
                 2, # vat_type
                 doc_date, # doc_date_calc
                 user_code, # sale_code
                 user_code # creator_code
             )
-
             cur.execute(detail_query, params)
 
         # --- Part 1.5: Insert into ic_trans_shipment ---
@@ -343,7 +419,6 @@ def api_pos_billing():
         ) VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
         """
         cur.execute(shipment_query, (doc_no, doc_date, customer_code))
-
 
         # --- Part 2: Add financial records in cb_trans and cb_trans_detail (New Logic) ---
         
@@ -362,27 +437,31 @@ def api_pos_billing():
         CB_DOC_TYPE = 1
         CURRENCY_CODE_LAK = '02'
 
-        cash_amount = 0.0
-        tranfer_amount_val = 0.0
-        card_amount = 0.0
+        total_amount_cb_lak = bill_h["total_amount_2"] # Total amount in Kip
+        total_amount_cb_baht = round(total_amount_cb_lak * bill_h["exchange_lak"], 2)
+
+        cash_amount_baht = 0.0
+        tranfer_amount_val_baht = 0.0
+        card_amount_baht = 0.0
 
         if payment_method == 'cash':
-            cash_amount = bill_h["total_amount_2"]
+            cash_amount_baht = total_amount_cb_baht
         elif payment_method == 'transfer':
-            tranfer_amount_val = bill_h["total_amount_2"]
+            tranfer_amount_val_baht = total_amount_cb_baht
         elif payment_method == 'card':
-            card_amount = bill_h["total_amount_2"]
+            card_amount_baht = total_amount_cb_baht
 
         sql_h = """
         INSERT INTO cb_trans
-        (trans_type, trans_flag, doc_date, doc_no, total_amount, total_net_amount, tranfer_amount, total_amount_pay, doc_time, ap_ar_code, pay_type, doc_format_code, cash_amount, card_amount)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        (trans_type, trans_flag, doc_date, doc_no, total_amount, total_net_amount, tranfer_amount, total_amount_pay, doc_time, ap_ar_code, pay_type, doc_format_code, cash_amount, card_amount, total_other_currency)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         cur.execute(sql_h, (
             CB_TRANS_TYPE, CB_TRANS_FLAG, bill_h["doc_date"], bill_h["doc_no"],
-            bill_h["total_amount_2"], bill_h["total_amount_2"], tranfer_amount_val, bill_h["total_amount_2"],
+            total_amount_cb_baht, total_amount_cb_baht, tranfer_amount_val_baht, total_amount_cb_baht,
             bill_h["doc_time"], bill_h["cust_code"], CB_PAY_TYPE, bill_h["doc_format_code"],
-            cash_amount, card_amount
+            cash_amount_baht, card_amount_baht,
+            round(cash_amount_baht, 2) if payment_method == 'cash' else 0.0 # total_other_currency
         ))
 
         # --- Logic for payment method ---
@@ -392,28 +471,37 @@ def api_pos_billing():
             cb_bank_code = 'BCEL001'
             cb_bank_branch = 'BCEL01'
         
-        # Use doc_no for trans_number instead of a test value
-        cb_trans_number = doc_no
+        # Conditional trans_number and doc_type for cb_trans_detail
+        cb_trans_detail_doc_type = CB_DOC_TYPE # Default to 1
+        cb_trans_detail_trans_number = doc_no # Default to doc_no
+        cb_trans_detail_sum_amount = total_amount_cb_baht # Always Baht equivalent
 
-        sum_amount_2_calculated = bill_h["exchange_lak"] * bill_h["total_amount_2"]
+        if payment_method == 'cash':
+            cb_trans_detail_doc_type = 19
+            cb_trans_detail_trans_number = '02'
+        elif payment_method == 'transfer':
+            cb_trans_detail_trans_number = '1010201' # As per user's instruction
+
+        sum_amount_2_calculated = round(bill_h["exchange_lak"] * bill_h["total_amount_2"], 2) # sum_amount_2 is Baht, rounded
 
         sql_detail = """
         INSERT INTO cb_trans_detail
-        (trans_type, trans_flag, doc_date, doc_no, trans_number, bank_code, bank_branch, exchange_rate, amount, chq_due_date, doc_type, doc_time, currency_code, sum_amount_2)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        (trans_type, trans_flag, doc_date, doc_no, trans_number, bank_code, bank_branch, exchange_rate, amount, sum_amount, chq_due_date, doc_type, doc_time, currency_code, sum_amount_2)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         cur.execute(sql_detail, (
             CB_TRANS_TYPE, CB_TRANS_FLAG, bill_h["doc_date"], bill_h["doc_no"],
-            cb_trans_number,
+            cb_trans_detail_trans_number,
             cb_bank_code,
             cb_bank_branch,
             bill_h["exchange_lak"],
-            bill_h["total_amount_2"],
+            round(total_amount_cb_lak, 2), # amount (Kip), rounded
+            round(cb_trans_detail_sum_amount, 2), # sum_amount (Baht), rounded
             bill_h["doc_date"],
-            CB_DOC_TYPE,
+            cb_trans_detail_doc_type,
             bill_h["doc_time"],
             CURRENCY_CODE_LAK,
-            sum_amount_2_calculated
+            sum_amount_2_calculated # sum_amount_2 (Baht), already rounded
         ))
 
         conn.commit()
@@ -434,6 +522,7 @@ def api_pos_billing():
             cur.close()
         if conn:
             conn.close()
+
 
 import json
 import time

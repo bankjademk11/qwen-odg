@@ -798,10 +798,6 @@ const POSPageFlask = () => {
                       <i className="bi bi-bank"></i>
                       ໂອນຈ່າຍ (Transfer)
                     </option>
-                    <option value="card">
-                      <i className="bi bi-credit-card"></i>
-                      ບັດເຄຣດິດ (Credit Card)
-                    </option>
                   </Form.Select>
                 </Form.Group>
               </div>
