@@ -453,14 +453,13 @@ def api_pos_billing():
 
         sql_h = """
         INSERT INTO cb_trans
-        (trans_type, trans_flag, doc_date, doc_no, total_amount, total_net_amount, tranfer_amount, total_amount_pay, doc_time, ap_ar_code, pay_type, doc_format_code, cash_amount, card_amount, total_other_currency)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        (trans_type, trans_flag, doc_date, doc_no, total_amount, total_net_amount, tranfer_amount, total_amount_pay, doc_time, ap_ar_code, pay_type, doc_format_code, total_other_currency)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         cur.execute(sql_h, (
             CB_TRANS_TYPE, CB_TRANS_FLAG, bill_h["doc_date"], bill_h["doc_no"],
             total_amount_cb_baht, total_amount_cb_baht, tranfer_amount_val_baht, total_amount_cb_baht,
             bill_h["doc_time"], bill_h["cust_code"], CB_PAY_TYPE, bill_h["doc_format_code"],
-            cash_amount_baht, card_amount_baht,
             round(cash_amount_baht, 2) if payment_method == 'cash' else 0.0 # total_other_currency
         ))
 

@@ -40,3 +40,6 @@ Thumbs.db
 
 # Local data files
 parked_bills.json
+
+# Python cache
+__pycache__/
