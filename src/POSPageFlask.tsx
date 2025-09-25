@@ -6,6 +6,10 @@ import './POSPage.css';
 
 const ITEMS_PER_PAGE = 30;
 
+const DEFAULT_CUSTOMER_CODE = '01-0239';
+const DEFAULT_CUSTOMER_NAME = 'ລູກຄ້າທີ່ຮ້ານ';
+const WALK_IN_CUSTOMER_IDS = ['2012344321', '01-2125', '01-2127', '01-2126', '01-0239'];
+
 // Interface for Product and CartItem
 interface Product {
   item_code: string;
@@ -32,6 +36,14 @@ interface Customer {
   code: string;
   name: string;
 }
+
+// Helper function to safely format numbers
+const formatCurrency = (value: number | undefined | null): string => {
+  if (value === undefined || value === null) {
+    return '0';
+  }
+  return value.toLocaleString();
+};
 
 const POSPageFlask = () => {
   const navigate = useNavigate();
@@ -91,17 +103,18 @@ const POSPageFlask = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [selectedCustomer, setSelectedCustomer] = useState<string>('');
+  const [selectedCustomer, setSelectedCustomer] = useState<string>(DEFAULT_CUSTOMER_CODE);
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [locations, setLocations] = useState<any[]>([]);
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>('1301');
   const [selectedLocation, setSelectedLocation] = useState<string>('01');
   const [paymentMethod, setPaymentMethod] = useState<string>('cash');
-  const [customerSearch, setCustomerSearch] = useState('');
+  const [customerSearch, setCustomerSearch] = useState(`${DEFAULT_CUSTOMER_NAME} (${DEFAULT_CUSTOMER_CODE})`);
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
+  const [isWalkInMode, setIsWalkInMode] = useState(true); // New state to toggle between walk-in dropdown and search
   const [amountReceived, setAmountReceived] = useState<number>(0);
   const [change, setChange] = useState<number>(0);
-  const [isCartExpanded, setIsCartExpanded] = useState<boolean>(false);
+  const [isCartExpanded, setIsCartExpanded] = useState<boolean>(true);
   const [isBilling, setIsBilling] = useState<boolean>(false);
   const [categorySearchTerm, setCategorySearchTerm] = useState('');
 
@@ -130,7 +143,7 @@ const POSPageFlask = () => {
   useEffect(() => {
     const fetchWarehouses = async () => {
       try {
-        const response = await fetch('http://localhost:5000/warehouse');
+        const response = await fetch(`${import.meta.env.VITE_FLASK_API_URL}/warehouse`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -148,12 +161,27 @@ const POSPageFlask = () => {
   useEffect(() => {
     const fetchCustomers = async () => {
       try {
-        const response = await fetch('http://localhost:5000/customer');
+        const response = await fetch(`${import.meta.env.VITE_FLASK_API_URL}/customer`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
-        setCustomers(data.list);
+        let fetchedCustomers: Customer[] = data.list;
+
+        const walkInCustomers = fetchedCustomers.filter(c => WALK_IN_CUSTOMER_IDS.includes(c.code));
+        const otherCustomers = fetchedCustomers.filter(c => !WALK_IN_CUSTOMER_IDS.includes(c.code));
+
+        // Ensure DEFAULT_CUSTOMER_CODE is first among walk-in customers
+        walkInCustomers.sort((a, b) => {
+          if (a.code === DEFAULT_CUSTOMER_CODE) return -1;
+          if (b.code === DEFAULT_CUSTOMER_CODE) return 1;
+          return 0;
+        });
+
+        // Combine them: walk-in customers first, then others
+        const sortedCustomers = [...walkInCustomers, ...otherCustomers];
+
+        setCustomers(sortedCustomers);
       } catch (e: any) {
         console.error("Failed to fetch customers:", e);
       }
@@ -166,7 +194,7 @@ const POSPageFlask = () => {
   useEffect(() => {
     const fetchLocations = async () => {
       try {
-        const response = await fetch(`http://localhost:5000/location/${selectedWarehouse}`);
+        const response = await fetch(`${import.meta.env.VITE_FLASK_API_URL}/location/${selectedWarehouse}`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -186,13 +214,16 @@ const POSPageFlask = () => {
 
   // Calculate change whenever total or amountReceived changes
   useEffect(() => {
-    setChange(amountReceived - total);
+    setChange(Math.max(0, amountReceived - total));
   }, [amountReceived, total]);
 
   const fetchProducts = useCallback(async (currentOffset: number) => {
-    if (currentOffset === 0) setLoading(true);
-    else setLoadingMore(true);
-
+    if (currentOffset === 0) {
+      setLoading(true);
+      setProducts([]); // Clear products when starting a new fetch
+    } else {
+      setLoadingMore(true);
+    }
     try {
       const params = new URLSearchParams({
         whcode: selectedWarehouse,
@@ -206,7 +237,7 @@ const POSPageFlask = () => {
         params.append('category', selectedCategory);
       }
 
-      const response = await fetch(`http://localhost:5000/product?${params.toString()}`);
+      const response = await fetch(`${import.meta.env.VITE_FLASK_API_URL}/product?${params.toString()}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -237,7 +268,7 @@ const POSPageFlask = () => {
 
   const fetchCategories = useCallback(async () => {
     try {
-      const response = await fetch(`http://localhost:5000/category?whcode=${selectedWarehouse}&loccode=${selectedLocation}`);
+      const response = await fetch(`${import.meta.env.VITE_FLASK_API_URL}/category?whcode=${selectedWarehouse}&loccode=${selectedLocation}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -260,7 +291,6 @@ const POSPageFlask = () => {
   }, [fetchCategories]);
 
   useEffect(() => {
-    setProducts([]);
     setOffset(0);
     setHasMore(true);
     fetchProducts(0);
@@ -328,7 +358,7 @@ const POSPageFlask = () => {
 
     setIsBilling(true);
     try {
-      const docNoResponse = await fetch('http://localhost:5000/docno');
+      const docNoResponse = await fetch(`${import.meta.env.VITE_FLASK_API_URL}/docno`);
       if (!docNoResponse.ok) {
         throw new Error('Failed to fetch document number.');
       }
@@ -361,7 +391,7 @@ const POSPageFlask = () => {
         branch_code: userBranchCode,
       };
 
-      const billingResponse = await fetch('http://localhost:5000/posbilling', {
+      const billingResponse = await fetch(`${import.meta.env.VITE_FLASK_API_URL}/posbilling`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -378,14 +408,21 @@ const POSPageFlask = () => {
 
       const newReceipt = {
         doc_no: result.doc_no,
-        doc_date: new Date().toLocaleString(),
+        doc_date: new Date().toString(),
         customer_name: customers.find(c => c.code === selectedCustomer)?.name || selectedCustomer,
         total_amount: total,
         amount_received: amountReceived,
         change_amount: change,
         payment_method: paymentMethod,
-        items: cart,
+        items: cart.map(item => ({
+          item_code: item.item_code,
+          item_name: item.item_name,
+          price: item.price,
+          qty: item.qty
+        })),
       };
+      
+
       setReceiptData(newReceipt);
       setShowReceiptModal(true);
 
@@ -440,8 +477,8 @@ const POSPageFlask = () => {
   };
 
   const handleParkBill = async () => {
-    if (!parkReferenceName) {
-      showCustomToast('Please enter a reference name for the bill.', 'warning');
+    if (!parkReferenceName || parkReferenceName.trim() === '') {
+      showCustomToast('ກະລຸນາປ້ອນຊື່ອ້າງອີງ ຫຼື ເລືອກລູກຄ້າກ່ອນ.', 'warning');
       return;
     }
 
@@ -452,7 +489,7 @@ const POSPageFlask = () => {
         cart_data: cart,
         customer_code: selectedCustomer,
         customer_search: customerSearch,
-        time: new Date().toLocaleString(),
+        time: new Date().toString(),
       };
 
       const savedParkedBills = JSON.parse(localStorage.getItem('posParkedBillsFlask') || '[]');
@@ -646,7 +683,7 @@ const POSPageFlask = () => {
                           </Card.Text>
                           <Card.Text className="product-price">
                             <i className="bi bi-cash me-1"></i>
-                            {product.price.toLocaleString()} ₭
+                            {formatCurrency(product.price)} ₭
                           </Card.Text>
                           <Card.Text className={`product-stock ${product.stock_quantity <= 5 ? 'low' : ''}`}>
                             <i className="bi bi-box-seam me-1"></i>
@@ -683,26 +720,73 @@ const POSPageFlask = () => {
               </Card.Header>
               <Card.Body>
                 <div className="customer-search-wrapper">
-                  <Form.Control
-                    type="text"
-                    placeholder="ຄົ້ນຫາດ້ວຍລະຫັດ ຫຼື ຊື່ລູກຄ້າ..."
-                    value={customerSearch}
-                    onChange={(e) => {
-                      setCustomerSearch(e.target.value);
-                      setIsCustomerDropdownOpen(true);
-                      if (e.target.value === '') {
-                        setSelectedCustomer(''); // Clear selection if search is cleared
-                      }
-                    }}
-                    onFocus={() => setIsCustomerDropdownOpen(true)}
-                    onBlur={() => setTimeout(() => setIsCustomerDropdownOpen(false), 200)}
-                  />
-                  {isCustomerDropdownOpen && (
+                  <div className="d-flex">
+                    {isWalkInMode ? (
+                      <Form.Select
+                        value={selectedCustomer}
+                        onChange={(e) => {
+                          const selectedCode = e.target.value;
+                          setSelectedCustomer(selectedCode);
+                          const customer = customers.find(c => c.code === selectedCode);
+                          setCustomerSearch(customer ? `${customer.name} (${customer.code})` : `${DEFAULT_CUSTOMER_NAME} (${DEFAULT_CUSTOMER_CODE})`);
+                        }}
+                        className="flex-grow-1"
+                      >
+                        {customers
+                          .filter(c => WALK_IN_CUSTOMER_IDS.includes(c.code))
+                          .map(customer => (
+                            <option key={customer.code} value={customer.code}>
+                              {customer.name} ({customer.code})
+                            </option>
+                          ))}
+                      </Form.Select>
+                    ) : (
+                      <Form.Control
+                        type="text"
+                        placeholder="ຄົ້ນຫາດ້ວຍລະຫັດ ຫຼື ຊື່ລູກຄ້າ..."
+                        value={customerSearch}
+                        onChange={(e) => {
+                          setCustomerSearch(e.target.value);
+                          setIsCustomerDropdownOpen(true);
+                          if (e.target.value !== DEFAULT_CUSTOMER_NAME) {
+                            setSelectedCustomer('');
+                          }
+                        }}
+                        onFocus={() => setIsCustomerDropdownOpen(true)}
+                        onBlur={() => setTimeout(() => setIsCustomerDropdownOpen(false), 200)}
+                        className="flex-grow-1"
+                      />
+                    )}
+                    <Button
+                      variant="outline-secondary"
+                      onClick={() => {
+                        if (isWalkInMode) {
+                          // Switch to search mode
+                          setIsWalkInMode(false);
+                          setCustomerSearch('');
+                          setSelectedCustomer('');
+                          setIsCustomerDropdownOpen(true);
+                        } else {
+                          // Switch back to walk-in mode
+                          setIsWalkInMode(true);
+                          setSelectedCustomer(DEFAULT_CUSTOMER_CODE);
+                          setCustomerSearch(`${DEFAULT_CUSTOMER_NAME} (${DEFAULT_CUSTOMER_CODE})`);
+                          setIsCustomerDropdownOpen(false);
+                        }
+                      }}
+                      className="ms-2"
+                      title={isWalkInMode ? "ຄົ້ນຫາລູກຄ້າອື່ນ" : "ເລືອກລູກຄ້າໜ້າຮ້ານ"}
+                    >
+                      {isWalkInMode ? <i className="bi bi-search"></i> : <i className="bi bi-person-fill"></i>}
+                    </Button>
+                  </div>
+                  {!isWalkInMode && isCustomerDropdownOpen && (
                     <div className="customer-search-results">
                       {customers
-                        .filter(c => 
-                          c.name.toLowerCase().includes(customerSearch.toLowerCase()) || 
-                          c.code.toLowerCase().includes(customerSearch.toLowerCase())
+                        .filter(c =>
+                          !WALK_IN_CUSTOMER_IDS.includes(c.code) && // Exclude walk-in customers from search results
+                          (c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+                           c.code.toLowerCase().includes(customerSearch.toLowerCase()))
                         )
                         .slice(0, 50)
                         .map(customer => (
@@ -747,12 +831,15 @@ const POSPageFlask = () => {
                     title="Process payment for items in cart"
                   >
                     <i className="bi bi-cash-coin"></i>
-                    ຈ່າຍເງິນ
+                    ຊຳລະເງິນ
                   </Button>
                   <Button 
                     variant="info" 
                     disabled={cart.length === 0} 
-                    onClick={() => setShowParkModal(true)}
+                    onClick={() => {
+                      setParkReferenceName(customerSearch); // Pre-fill with current customer
+                      setShowParkModal(true);
+                    }}
                     title="Park this bill for later"
                   >
                     <i className="bi bi-pause-circle"></i>
@@ -791,11 +878,9 @@ const POSPageFlask = () => {
                     onChange={(e) => setPaymentMethod(e.target.value)}
                   >
                     <option value="cash">
-                      <i className="bi bi-cash"></i>
                       ເງິນສົດ (Cash)
                     </option>
                     <option value="transfer">
-                      <i className="bi bi-bank"></i>
                       ໂອນຈ່າຍ (Transfer)
                     </option>
                   </Form.Select>
@@ -811,7 +896,7 @@ const POSPageFlask = () => {
                           <div className="fw-bold">{item.item_name}</div>
                           <div>
                             <i className="bi bi-cash me-1"></i>
-                            {item.price.toLocaleString()} ₭
+                            {formatCurrency(item.price)} ₭
                           </div>
                         </div>
                         <div className="d-flex align-items-center">
@@ -868,28 +953,37 @@ const POSPageFlask = () => {
                       </span>
                       <span className="fw-bold">{cart.reduce((sum, item) => sum + item.qty, 0)}</span>
                     </div>
-                    <div className="summary-item">
-                      <span>
-                        <i className="bi bi-cash me-1"></i>
-                        ລວມທັງໝົດ:
+                    <div className="summary-item total">
+                      <span className="text-success">
+                        <i className="bi bi-receipt me-1"></i>
+                        ລວມເປັນງິນທັງໝົດ:
                       </span>
-                      <span className="fw-bold">{total.toLocaleString()} ₭</span>
+                      <span className="fw-bold fs-5 text-success">{formatCurrency(total)} ₭</span>
                     </div>
                     <div className="summary-item">
                       <span>
                         <i className="bi bi-wallet2 me-1"></i>
-                        ເງິນທີ່ຮັບມາ:
+                        <span className="fw-bold">ເງິນທີ່ຮັບມາ:</span>
                       </span>
                       <span>
-                        <Form.Control
-                          type="number"
-                          placeholder="0"
-                          value={amountReceived === 0 ? '' : amountReceived}
-                          onChange={(e) => setAmountReceived(parseFloat(e.target.value) || 0)}
-                          min="0"
-                          size="sm"
-                          className="d-inline-block w-auto"
-                        />
+                        <div className="d-flex align-items-center">
+                          <Form.Control
+                            type="number"
+                            placeholder="0"
+                            value={amountReceived === 0 ? '' : amountReceived}
+                            onChange={(e) => setAmountReceived(parseFloat(e.target.value) || 0)}
+                            min="0"
+                            className="d-inline-block w-auto me-2"
+                          />
+                          <Button 
+                            variant="primary" 
+                            size="sm" 
+                            onClick={() => setAmountReceived(total)}
+                            title="เติมยอดรวม"
+                          >
+                            ລວມເປັນເງິນ
+                          </Button>
+                        </div>
                       </span>
                     </div>
                     <div className="summary-item total">
@@ -897,7 +991,7 @@ const POSPageFlask = () => {
                         <i className="bi bi-cash-stack me-1"></i>
                         ເງິນທອນ:
                       </span>
-                      <span>{change.toLocaleString()} ₭</span>
+                      <span className="fs-5">{formatCurrency(change)} ₭</span>
                     </div>
                   </div>
                 </div>
@@ -1045,7 +1139,7 @@ const POSPageFlask = () => {
                     <div>
                       <span>{item.item_name} x {item.qty}</span>
                     </div>
-                    <span>{(item.price * item.qty).toLocaleString()} ₭</span>
+                    <span>{formatCurrency((item.price || 0) * (item.qty || 0))} ₭</span>
                   </ListGroup.Item>
                 ))}
               </ListGroup>
@@ -1053,15 +1147,15 @@ const POSPageFlask = () => {
               <div className="payment-summary">
                 <div className="summary-item">
                   <span>ລວມທັງໝົດ:</span>
-                  <span className="fw-bold">{receiptData.total_amount.toLocaleString()} ₭</span>
+                  <span className="fw-bold">{formatCurrency(receiptData.total_amount)} ₭</span>
                 </div>
                 <div className="summary-item">
                   <span>ເງິນທີ່ຮັບມາ:</span>
-                  <span>{receiptData.amount_received.toLocaleString()} ₭</span>
+                  <span>{formatCurrency(receiptData.amount_received)} ₭</span>
                 </div>
                 <div className="summary-item total">
                   <span>ເງິນທອນ:</span>
-                  <span>{receiptData.change_amount.toLocaleString()} ₭</span>
+                  <span>{formatCurrency(receiptData.change_amount)} ₭</span>
                 </div>
               </div>
               

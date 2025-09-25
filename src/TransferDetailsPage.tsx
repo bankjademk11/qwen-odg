@@ -19,7 +19,7 @@ const TransferDetailsPage: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`http://localhost:8004/api/transfers/${transferId}`);
+        const response = await fetch(`${import.meta.env.VITE_FASTAPI_URL}/api/transfers/${transferId}`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }

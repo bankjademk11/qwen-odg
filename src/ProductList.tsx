@@ -52,7 +52,7 @@ const ProductList: React.FC = () => {
       const dateParam = date ? `&doc_date=${date}` : '';
       const warehouseParam = whCode ? `&wh_code=${whCode}` : '';
       const userWarehouseParam = `&user_wh_code=${userWarehouseCode}`;
-      const response = await fetch(`http://localhost:8004/api/analysis-data?limit=${ITEMS_PER_LOAD}&offset=${currentOffset}${dateParam}${warehouseParam}${userWarehouseParam}`);
+      const response = await fetch(`${import.meta.env.VITE_FASTAPI_URL}/api/analysis-data?limit=${ITEMS_PER_LOAD}&offset=${currentOffset}${dateParam}${warehouseParam}${userWarehouseParam}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -186,7 +186,7 @@ const ProductList: React.FC = () => {
             </div>
             <div className="alert alert-danger">
               <p>Error: {error}</p>
-              <p>Please ensure your backend server is running at http://localhost:8004.</p>
+              <p>Please ensure your backend server is running at {import.meta.env.VITE_FASTAPI_URL}.</p>
             </div>
           </div>
         </Container>

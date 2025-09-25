@@ -4,10 +4,19 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import os
 
+import os
+
 app = Flask(__name__)
 
 # Configure CORS
-CORS(app, origins=["http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:5176", "http://localhost:3000"])
+frontend_ip_url = os.getenv("VITE_FRONTEND_IP_URL")
+allowed_origins = [
+    "http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:5176", "http://localhost:3000"
+]
+if frontend_ip_url:
+    allowed_origins.append(frontend_ip_url)
+
+CORS(app, origins=allowed_origins)
 
 # Database connection configuration
 DATABASE_CONFIG = {
@@ -514,6 +523,96 @@ def api_pos_billing():
     except Exception as e:
         conn.rollback()
         print(f"Error processing transaction: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+@app.route('/api/sales-history-db', methods=['GET'])
+def api_sales_history_db():
+    """Get sales history from the database with pagination and filtering."""
+    conn = get_connection()
+    if not conn:
+        return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+    limit = request.args.get('limit', 20, type=int)
+    offset = request.args.get('offset', 0, type=int)
+    selected_date = request.args.get('selectedDate', None)
+    search_term = request.args.get('searchTerm', None)
+
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    try:
+        base_query = """
+        SELECT
+            it.doc_no,
+            it.doc_date,
+            it.doc_time,
+            it.cust_code,
+            it.total_amount_2,
+            it.currency_code,
+            ec.symbol AS currency_symbol,
+            ac.name_1 AS customer_name
+        FROM
+            ic_trans it
+        LEFT JOIN
+            ar_customer ac ON it.cust_code = ac.code
+        LEFT JOIN
+            erp_currency ec ON it.currency_code = ec.code
+        WHERE
+            it.trans_flag = 44
+        """
+        params = []
+        where_clauses = []
+
+        if selected_date:
+            where_clauses.append("it.doc_date = %s")
+            params.append(selected_date)
+        
+        if search_term:
+            search_pattern = f"%{search_term.lower()}%"
+            where_clauses.append("(LOWER(it.doc_no) LIKE %s OR LOWER(ac.name_1) LIKE %s)")
+            params.extend([search_pattern, search_pattern])
+
+        if where_clauses:
+            base_query += " AND " + " AND ".join(where_clauses)
+
+        base_query += " ORDER BY it.doc_date DESC, it.doc_time DESC"
+        
+        # Query for total count (without limit/offset)
+        count_query = f"SELECT COUNT(*) FROM ({base_query}) AS subquery"
+        cur.execute(count_query, params)
+        total_count = cur.fetchone()['count']
+
+        # Add limit and offset for fetching actual data
+        base_query += " LIMIT %s OFFSET %s"
+        params.extend([limit, offset])
+
+        cur.execute(base_query, params)
+        result = cur.fetchall()
+        
+        # For each transaction, fetch the product details
+        for transaction in result:
+            detail_query = """
+            SELECT 
+                item_code,
+                item_name,
+                unit_code,
+                qty,
+                price_2 as price
+            FROM ic_trans_detail 
+            WHERE doc_no = %s 
+            ORDER BY line_number
+            """
+            cur.execute(detail_query, (transaction['doc_no'],))
+            transaction['items'] = cur.fetchall()
+        
+        return jsonify({'list': result, 'totalCount': total_count}), 200
+
+    except Exception as e:
+        print(f"Error fetching sales history: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
     finally:

@@ -87,8 +87,8 @@ function RestockRequest() {
       }
     };
     // Both source and destination warehouses should use the same endpoint to show all warehouses
-    fetchWarehouses('http://localhost:8004/api/warehouses', setSourceWarehouses);
-    fetchWarehouses('http://localhost:8004/api/warehouses', setDestinationWarehouses);
+    fetchWarehouses(`${import.meta.env.VITE_FASTAPI_URL}/api/warehouses`, setSourceWarehouses);
+    fetchWarehouses(`${import.meta.env.VITE_FASTAPI_URL}/api/warehouses`, setDestinationWarehouses);
   }, []);
 
   // Auto-select source warehouse based on user's warehouse when warehouses are loaded
@@ -136,7 +136,7 @@ function RestockRequest() {
       const fetchLocations = async () => {
         setSourceLocations([]);
         try {
-          const response = await fetch(`http://localhost:8004/api/locations/${sourceWarehouse}`);
+          const response = await fetch(`${import.meta.env.VITE_FASTAPI_URL}/api/locations/${sourceWarehouse}`);
           if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
           const data = await response.json();
           setSourceLocations(data);
@@ -155,7 +155,7 @@ function RestockRequest() {
     if (destinationWarehouse) {
       const fetchLocations = async () => {
         try {
-          const response = await fetch(`http://localhost:8004/api/destination-locations/${destinationWarehouse}`);
+          const response = await fetch(`${import.meta.env.VITE_FASTAPI_URL}/api/destination-locations/${destinationWarehouse}`);
           if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
           const newLocations = await response.json();
           setDestinationLocations(newLocations);
@@ -214,7 +214,7 @@ function RestockRequest() {
       const dateParam = date ? `&doc_date=${date}` : '';
       const locationParam = whCode ? `&wh_code=${whCode}` : '';
       const userWarehouseParam = `&user_wh_code=${userWarehouseCode}`;
-      const response = await fetch(`http://localhost:8004/api/analysis-data?limit=${ITEMS_PER_LOAD}&offset=${currentOffset}${dateParam}${locationParam}${userWarehouseParam}`);
+      const response = await fetch(`${import.meta.env.VITE_FASTAPI_URL}/api/analysis-data?limit=${ITEMS_PER_LOAD}&offset=${currentOffset}${dateParam}${locationParam}${userWarehouseParam}`);
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const result = await response.json();
       const sortedData = result.sort((a: any, b: any) => a.balance_qty - b.qty);
@@ -317,7 +317,7 @@ function RestockRequest() {
 
     try {
       // Generate transfer number from backend
-      const transferNoResponse = await fetch('http://localhost:8004/api/generate-transfer-no');
+      const transferNoResponse = await fetch(`${import.meta.env.VITE_FASTAPI_URL}/api/generate-transfer-no`);
       if (!transferNoResponse.ok) {
         throw new Error('Failed to generate transfer number');
       }
@@ -340,7 +340,7 @@ function RestockRequest() {
         })),
       };
 
-      const response = await fetch('http://localhost:8004/api/transfers', {
+      const response = await fetch(`${import.meta.env.VITE_FASTAPI_URL}/api/transfers`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

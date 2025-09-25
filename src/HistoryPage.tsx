@@ -19,7 +19,7 @@ const HistoryPage = () => {
   useEffect(() => {
     const fetchBills = async () => {
       try {
-        const response = await fetch('http://localhost:5000/billings');
+        const response = await fetch(`${import.meta.env.VITE_FLASK_API_URL}/billings`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }

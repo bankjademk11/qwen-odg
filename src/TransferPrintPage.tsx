@@ -33,6 +33,7 @@ const TransferPrintPage = () => {
   const [transfer, setTransfer] = useState<TransferData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [imageLoaded, setImageLoaded] = useState(false); // New state for image loading
   const MIN_ROWS_PER_PAGE = 30; // จำนวนแถวขั้นต่ำที่ต้องการให้แสดงในแต่ละหน้า
 
   const navigate = useNavigate();
@@ -43,15 +44,27 @@ const TransferPrintPage = () => {
       if (!transferId) return;
       setLoading(true);
       setError(null);
+      setImageLoaded(false); // Reset imageLoaded on new fetch
       try {
-        const response = await fetch(`http://localhost:8004/api/transfers/${transferId}`);
+        const response = await fetch(`${import.meta.env.VITE_FASTAPI_URL}/api/transfers/${transferId}`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
         setTransfer(data);
+
+        // Pre-load the logo image
+        const img = new Image();
+        img.src = "/image/logo.png";
+        img.onload = () => setImageLoaded(true);
+        img.onerror = () => {
+          console.error("Failed to load logo image.");
+          setImageLoaded(true); // Still allow printing even if image fails
+        };
+
       } catch (e: any) {
         setError(e.message);
+        setImageLoaded(true); // Allow printing even if data fetch fails
       } finally {
         setLoading(false);
       }
@@ -60,12 +73,12 @@ const TransferPrintPage = () => {
     fetchTransferDetails();
   }, [transferId]);
 
-  // Automatically trigger print dialog once data is loaded
+  // Automatically trigger print dialog once data and image are loaded
   useEffect(() => {
-    if (!loading && transfer) {
+    if (!loading && transfer && imageLoaded) {
       window.print();
     }
-  }, [loading, transfer]);
+  }, [loading, transfer, imageLoaded]);
 
   if (loading) {
     return (

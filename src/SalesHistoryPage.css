@@ -1,0 +1,73 @@
+/* SalesHistoryPage.css */
+
+.sale-details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.detail-label {
+  font-weight: bold;
+  color: #333;
+}
+
+.detail-value {
+  text-align: right;
+  color: #666;
+}
+
+.item-detail-row {
+  border: 1px solid #eee;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  padding: 10px !important;
+}
+
+.item-name {
+  font-weight: bold;
+  margin-bottom: 8px;
+  color: #333;
+  font-size: 14px;
+}
+
+.item-details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.item-detail {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.item-detail .detail-label {
+  font-weight: normal;
+  color: #666;
+  margin-right: 5px;
+}
+
+.item-detail .detail-value {
+  font-weight: bold;
+  color: #333;
+  text-align: right;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .sale-details-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .item-details-grid {
+    grid-template-columns: 1fr;
+  }
+}

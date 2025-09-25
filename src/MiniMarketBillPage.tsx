@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Container, Row, Col, Button } from 'react-bootstrap';
+import './MiniMarketBillPage.css'; // Import the new CSS file
 
 interface CartItem {
   item_code: string;
@@ -19,6 +20,14 @@ interface ReceiptData {
   items: CartItem[];
 }
 
+// Helper function to safely format numbers
+const formatCurrency = (value: number | undefined | null): string => {
+  if (value === undefined || value === null) {
+    return '0';
+  }
+  return value.toLocaleString();
+};
+
 const MiniMarketBillPage: React.FC = () => {
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
 
@@ -30,54 +39,115 @@ const MiniMarketBillPage: React.FC = () => {
   }, []);
 
   if (!receipt) {
-    return <Container className="mt-5 text-center"><h2>ບໍ່ພົບຂໍ້ມູນໃບຮັບເງິນ</h2><p>ກະລຸນາກັບໄປທີ່ໜ້າ POS ເພື່ອສ້າງໃບຮັບເງິນ.</p></Container>;
+    return (
+      <div className="receipt-container">
+        <Container className="mt-5 text-center">
+          <h2>ບໍ່ພົບຂໍ້ມູນໃບຮັບເງິນ</h2>
+          <p>ກະລຸນາກັບໄປທີ່ໜ້າ POS ເພື່ອສ້າງໃບຮັບເງິນ.</p>
+        </Container>
+      </div>
+    );
   }
 
   return (
-    <Container className="mini-bill-page p-3" style={{ maxWidth: '300px', margin: '20px auto', border: '1px solid #ccc', fontFamily: 'monospace', fontSize: '0.8em' }}>
-      <div className="text-center mb-3">
-        <img src="/image/logo.png" alt="Logo" style={{ width: '80px', height: 'auto', marginBottom: '10px' }} />
-        <h5>ຮ້ານຂາຍເຄື່ອງ</h5>
-        <p>ໃບຮັບເງິນ</p>
-        <p>--------------------------------</p>
+    <div className="receipt-container">
+      <div className="receipt-header no-print">
+        <Container className="bill-page-container p-3">
+          <div className="d-flex justify-content-between align-items-center mb-3">
+            <Button variant="secondary" onClick={() => window.close()}>
+              <i className="bi bi-arrow-left me-2"></i>
+              ກັບຄືນ
+            </Button>
+            <Button variant="primary" onClick={() => window.print()}>
+              <i className="bi bi-printer me-2"></i>
+              ພິມໃບຮັບເງິນ
+            </Button>
+          </div>
+        </Container>
       </div>
 
-      <Row className="mb-2">
-        <Col xs={6}><strong>ເລກບິນ:</strong></Col>
-        <Col xs={6} className="text-end">{receipt.doc_no}</Col>
-        <Col xs={6}><strong>ວັນທີ:</strong></Col>
-        <Col xs={6} className="text-end">{receipt.doc_date}</Col>
-        <Col xs={6}><strong>ລູກຄ້າ:</strong></Col>
-        <Col xs={6} className="text-end">{receipt.customer_name}</Col>
-        <Col xs={6}><strong>ວິທີຊຳລະ:</strong></Col>
-        <Col xs={6} className="text-end">{receipt.payment_method}</Col>
-        <Col xs={12}><p>--------------------------------</p></Col>
-      </Row>
+      <div className="receipt-content">
+        <div className="receipt-header-info text-center">
+          <div className="company-logo-placeholder">
+            <div className="logo-text">ODIEN MALL</div>
+          </div>
+          <h2 className="receipt-title">ໃບຮັບເງິນ</h2>
+          <p className="receipt-subtitle">RECEIPT</p>
+        </div>
 
-      {receipt.items.map((item, index) => (
-        <Row key={index} className="bill-item">
-          <Col xs={12}><strong>{item.item_name}</strong></Col>
-          <Col xs={6}>{item.qty} x {item.price.toLocaleString()} ₭</Col>
-          <Col xs={6} className="text-end">{(item.qty * item.price).toLocaleString()} ₭</Col>
-        </Row>
-      ))}
+        <div className="receipt-details">
+          <div className="detail-row">
+            <span className="label">ເລກບິນ:</span>
+            <span className="value">{receipt.doc_no}</span>
+          </div>
+          <div className="detail-row">
+            <span className="label">ວັນທີ:</span>
+            <span className="value">{receipt.doc_date}</span>
+          </div>
+          <div className="detail-row">
+            <span className="label">ລູກຄ້າ:</span>
+            <span className="value">{receipt.customer_name}</span>
+          </div>
+          <div className="detail-row">
+            <span className="label">ວິທີຊຳລະ:</span>
+            <span className="value">
+              {receipt.payment_method === 'cash' ? 'ເງິນສົດ' : 
+               receipt.payment_method === 'transfer' ? 'ໂອນຈ່າຍ' : 
+               receipt.payment_method}
+            </span>
+          </div>
+        </div>
 
-      <Row className="mt-2">
-        <Col xs={12}><p>--------------------------------</p></Col>
-        <Col xs={6}><strong>ລວມທັງໝົດ:</strong></Col>
-        <Col xs={6} className="text-end"><strong>{receipt.total_amount.toLocaleString()} ₭</strong></Col>
-        <Col xs={6}>ເງິນທີ່ຮັບມາ:</Col>
-        <Col xs={6} className="text-end">{receipt.amount_received.toLocaleString()} ₭</Col>
-        <Col xs={6}>ເງິນທອນ:</Col>
-        <Col xs={6} className="text-end">{receipt.change_amount.toLocaleString()} ₭</Col>
-        <Col xs={12}><p>--------------------------------</p></Col>
-      </Row>
+        <div className="divider"></div>
 
-      <div className="text-center mt-3">
-        <p>ຂອບໃຈທີ່ໃຊ້ບໍລິການ!</p>
-        <Button variant="primary" onClick={() => window.print()} className="d-print-none">ພິມໃບຮັບເງິນ</Button>
+        <div className="items-header">
+          <div className="item-desc">ລາຍການສິນຄ້າ</div>
+          <div className="item-qty">ຈຳນວນ</div>
+          <div className="item-price">ລາຄາ</div>
+          <div className="item-total">ລວມ</div>
+        </div>
+
+        <div className="items-list">
+          {receipt.items && receipt.items.map((item, index) => (
+            <div className="item-row" key={index}>
+              <div className="item-desc">
+                <div className="item-name">{item.item_name}</div>
+                <div className="item-details">
+                  <span className="item-code">{item.item_code}</span>
+                  <span className="item-qty-display">ຈຳນວນ {Number.isInteger(item.qty) ? item.qty : formatCurrency(item.qty)}</span>
+                  <span className="item-price-display">ລາຄາ {Number.isInteger(item.price) ? formatCurrency(item.price) : formatCurrency(item.price)} ₭</span>
+                </div>
+              </div>
+              <div className="item-total">{formatCurrency((item.qty || 0) * (item.price || 0))} ₭</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="divider"></div>
+
+        <div className="summary-section">
+          <div className="summary-row total">
+            <span>ລວມທັງໝົດ:</span>
+            <span>{formatCurrency(receipt.total_amount)} ₭</span>
+          </div>
+          <div className="summary-row">
+            <span>ເງິນທີ່ຮັບມາ:</span>
+            <span>{formatCurrency(receipt.amount_received)} ₭</span>
+          </div>
+          <div className="summary-row change">
+            <span>ເງິນທອນ:</span>
+            <span>{formatCurrency(receipt.change_amount)} ₭</span>
+          </div>
+        </div>
+
+        <div className="divider"></div>
+
+        <div className="receipt-footer text-center">
+          <p className="thank-you">ຂອບໃຈທີ່ໃຊ້ບໍລິການ!</p>
+          <p className="thank-you-en">Thank you for your purchase!</p>
+        </div>
       </div>
-    </Container>
+    </div>
   );
 };
 

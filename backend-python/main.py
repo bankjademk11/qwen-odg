@@ -77,6 +77,22 @@ class TransferRequest(BaseModel):
     location_to: str
     details: List[TransferDetail]
 
+class SaleRequest(BaseModel):
+    total_amount: float
+    payment_method: str
+    user_code: str
+    items: List[SaleItem]
+
+class SalesHistoryItem(BaseModel):
+    doc_no: str
+    doc_date: date
+    doc_time: str
+    cust_code: str
+    total_amount_2: float
+    currency_code: str
+    currency_symbol: str
+    customer_name: str
+
 # Helper function to get database connection
 async def get_db():
     if not pool:
@@ -221,6 +237,39 @@ async def get_units():
     except Exception as e:
         print(f"Error fetching units: {e}")
         return ["PCS", "BOX", "SET"] # Fallback mock data
+
+@app.get("/api/sales-history-db", response_model=List[SalesHistoryItem])
+async def get_sales_history_from_db(db: asyncpg.Connection = Depends(get_db)):
+    """
+    API endpoint to get sales history from the database.
+    """
+    try:
+        query = """
+        SELECT
+            T.doc_no,
+            T.doc_date,
+            T.doc_time,
+            T.cust_code,
+            T.total_amount_2,
+            T.currency_code,
+            C.symbol AS currency_symbol,
+            A.name_1 AS customer_name
+        FROM
+            ic_trans T
+        INNER JOIN
+            erp_currency C ON T.currency_code = C.code
+        INNER JOIN
+            ar_customer A ON T.cust_code = A.code
+        WHERE
+            T.creator_code = '25023'
+            AND T.trans_flag = 44;
+        """
+        rows = await db.fetch(query)
+        return [SalesHistoryItem(**dict(row)) for row in rows]
+    except Exception as e:
+        print(f"Error fetching sales history from DB: {e}")
+        raise HTTPException(status_code=500, detail="Error fetching sales history")
+
 
 if __name__ == "__main__":
     import uvicorn

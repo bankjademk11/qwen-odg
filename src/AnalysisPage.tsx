@@ -11,7 +11,7 @@ const AnalysisPage: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch('http://localhost:8004/api/analysis-data');
+        const response = await fetch(`${import.meta.env.VITE_FASTAPI_URL}/api/analysis-data`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -46,7 +46,7 @@ const AnalysisPage: React.FC = () => {
         <Container className="mt-4">
           <h2>Analysis Data (Error)</h2>
           <p>Error: {error}</p>
-          <p>Please ensure your backend server is running at http://localhost:8004.</p>
+          <p>Please ensure your backend server is running at {import.meta.env.VITE_FASTAPI_URL}.</p>
         </Container>
       </div>
     );

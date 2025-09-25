@@ -33,7 +33,7 @@ const TransferPage: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`http://localhost:8004/api/transfers?date=${selectedDate}`);
+        const response = await fetch(`${import.meta.env.VITE_FASTAPI_URL}/api/transfers?date=${selectedDate}`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }

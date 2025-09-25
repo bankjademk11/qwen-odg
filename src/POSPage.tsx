@@ -69,7 +69,7 @@ const POSPage = () => {
     else setLoadingMore(true);
 
     try {
-      const response = await fetch(`http://localhost:8004/api/pos-products?limit=${ITEMS_PER_PAGE}&offset=${currentOffset}`);
+      const response = await fetch(`${import.meta.env.VITE_FASTAPI_URL}/api/pos-products?limit=${ITEMS_PER_PAGE}&offset=${currentOffset}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -98,7 +98,7 @@ const POSPage = () => {
   useEffect(() => {
     const fetchCategories = async () => {
         try {
-          const response = await fetch(`http://localhost:8004/api/units`);
+          const response = await fetch(`${import.meta.env.VITE_FASTAPI_URL}/api/units`);
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }

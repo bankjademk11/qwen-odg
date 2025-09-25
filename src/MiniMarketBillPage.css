@@ -1,0 +1,325 @@
+/* MiniMarketBillPage.css - Optimized for 80mm thermal receipt printers */
+
+/* General styles for screen view */
+.receipt-container {
+  max-width: 100%;
+  margin: 0 auto;
+  background-color: #fff;
+  font-family: 'Arial', sans-serif;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #000;
+}
+
+.receipt-header {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.bill-page-container {
+  max-width: 100%;
+  padding: 0;
+}
+
+.receipt-content {
+  padding: 15px;
+  width: 80mm; /* Fixed width for 80mm receipt */
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+/* Header section */
+.receipt-header-info {
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.company-logo-placeholder {
+  margin-bottom: 10px;
+}
+
+.logo-text {
+  font-size: 18px;
+  font-weight: bold;
+  color: #000;
+}
+
+.receipt-title {
+  font-size: 16px;
+  font-weight: bold;
+  margin: 8px 0;
+  color: #000;
+}
+
+.receipt-subtitle {
+  font-size: 12px;
+  margin: 5px 0 10px 0;
+  color: #666;
+}
+
+/* Receipt details */
+.receipt-details {
+  margin-bottom: 15px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  padding: 3px 0;
+}
+
+.detail-row .label {
+  font-weight: bold;
+  min-width: 90px; /* Ensure labels have consistent width */
+}
+
+.detail-row .value {
+  text-align: right;
+  flex: 1;
+  word-break: break-word;
+}
+
+/* Divider */
+.divider {
+  border-top: 1px dashed #000;
+  margin: 12px 0;
+}
+
+/* Items section */
+.items-header {
+  display: none; /* Hide column headers */
+}
+
+.items-list {
+  margin-bottom: 15px;
+}
+
+.item-row {
+  display: flex;
+  padding: 6px 0;
+  border-bottom: 1px dotted #ccc;
+  page-break-inside: avoid; /* Prevent items from splitting across pages */
+}
+
+.item-row:last-child {
+  border-bottom: none;
+}
+
+.item-desc {
+  flex: 3;
+}
+
+.item-name {
+  font-weight: bold;
+  margin-bottom: 3px;
+  font-size: 11px;
+}
+
+.item-details {
+  display: flex;
+  flex-direction: column;
+  font-size: 10px;
+  color: #333;
+}
+
+.item-code {
+  font-size: 9px;
+  color: #666;
+  margin-bottom: 2px;
+}
+
+.item-qty-display,
+.item-price-display {
+  margin-bottom: 1px;
+}
+
+.item-total {
+  flex: 1;
+  text-align: right;
+  font-size: 11px;
+  font-weight: bold;
+  align-self: center;
+}
+
+/* Summary section */
+.summary-section {
+  margin-bottom: 15px;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+  margin-bottom: 3px;
+}
+
+.summary-row.total {
+  font-weight: bold;
+  font-size: 14px;
+  border-top: 1px solid #000;
+  border-bottom: 1px solid #000;
+  margin: 8px 0;
+  padding: 6px 0;
+}
+
+.summary-row.change {
+  font-weight: bold;
+  font-size: 14px;
+}
+
+/* Footer */
+.receipt-footer {
+  margin-top: 20px;
+  padding-top: 10px;
+  border-top: 1px dashed #000;
+}
+
+.thank-you {
+  font-weight: bold;
+  margin: 0 0 5px 0;
+  font-size: 12px;
+}
+
+.thank-you-en {
+  font-size: 10px;
+  margin: 0;
+  color: #666;
+}
+
+/* Print-specific styles */
+@media print {
+  @page {
+    size: 80mm auto; /* 80mm width, auto height */
+    margin: 0mm; /* Remove default margins */
+  }
+  
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 80mm;
+    height: auto;
+    background-color: #fff;
+    -webkit-print-color-adjust: exact;
+    -webkit-text-size-adjust: none;
+  }
+  
+  .receipt-container {
+    width: 80mm;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+    background-color: #fff;
+  }
+  
+  .receipt-content {
+    width: 80mm;
+    max-width: 80mm;
+    padding: 8mm 4mm; /* Small margins for print */
+    margin: 0;
+    box-sizing: border-box;
+  }
+  
+  .receipt-header {
+    display: none; /* Hide header when printing */
+  }
+  
+  .no-print {
+    display: none !important;
+  }
+  
+  /* Ensure text fits within 80mm */
+  .receipt-content,
+  .detail-row,
+  .item-row,
+  .summary-row {
+    font-size: 11px;
+    line-height: 1.4;
+  }
+  
+  .receipt-title {
+    font-size: 15px;
+    margin: 6px 0;
+  }
+  
+  .logo-text {
+    font-size: 17px;
+  }
+  
+  .item-name {
+    font-size: 10px;
+    margin-bottom: 2px;
+  }
+  
+  .item-details {
+    font-size: 9px;
+  }
+  
+  .item-code {
+    font-size: 8px;
+  }
+  
+  .item-total {
+    font-size: 10px;
+  }
+  
+  /* Optimize spacing for thermal printing */
+  .detail-row,
+  .item-row,
+  .summary-row {
+    margin-bottom: 3px;
+    padding: 3px 0;
+  }
+  
+  .detail-row {
+    margin-bottom: 5px;
+  }
+  
+  .divider {
+    margin: 8px 0;
+  }
+  
+  .receipt-details {
+    margin-bottom: 12px;
+  }
+  
+  .items-list {
+    margin-bottom: 12px;
+  }
+  
+  .summary-section {
+    margin-bottom: 12px;
+  }
+  
+  .receipt-footer {
+    margin-top: 15px;
+    padding-top: 8px;
+  }
+  
+  .thank-you {
+    font-size: 11px;
+    margin: 0 0 4px 0;
+  }
+  
+  /* Ensure full width usage */
+  * {
+    box-sizing: border-box;
+  }
+  
+  /* Prevent page breaks inside important elements */
+  .receipt-details,
+  .items-list,
+  .summary-section {
+    page-break-inside: avoid;
+  }
+  
+  /* Windows-specific print optimization */
+  * {
+    -webkit-print-color-adjust: exact;
+    color-adjust: exact;
+  }
+}

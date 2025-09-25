@@ -32,7 +32,7 @@ const EditTransferPage: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`http://localhost:8004/api/transfers/${transferId}`);
+        const response = await fetch(`${import.meta.env.VITE_FASTAPI_URL}/api/transfers/${transferId}`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -63,14 +63,14 @@ const EditTransferPage: React.FC = () => {
     const fetchWarehouses = async () => {
       try {
         // Fetch source warehouses
-        const sourceResponse = await fetch('http://localhost:8004/api/warehouses');
+        const sourceResponse = await fetch(`${import.meta.env.VITE_FASTAPI_URL}/api/warehouses`);
         if (sourceResponse.ok) {
           const sourceData = await sourceResponse.json();
           setSourceWarehouses(sourceData);
         }
 
         // Fetch destination warehouses
-        const destResponse = await fetch('http://localhost:8004/api/destination-warehouses');
+        const destResponse = await fetch(`${import.meta.env.VITE_FASTAPI_URL}/api/destination-warehouses`);
         if (destResponse.ok) {
           const destData = await destResponse.json();
           setDestinationWarehouses(destData);
@@ -89,13 +89,10 @@ const EditTransferPage: React.FC = () => {
     const fetchLocations = async () => {
       if (formData.wh_from) {
         try {
-          const response = await fetch(`http://localhost:8004/api/locations/${formData.wh_from}`);
+          const response = await fetch(`${import.meta.env.VITE_FASTAPI_URL}/api/locations/${formData.wh_from}`);
           if (response.ok) {
             const data = await response.json();
             setSourceLocations(data);
-          } else {
-            console.error('Failed to fetch source locations');
-            setSourceLocations([]);
           }
         } catch (e: any) {
           console.error('Error fetching source locations:', e);
@@ -113,13 +110,10 @@ const EditTransferPage: React.FC = () => {
     const fetchLocations = async () => {
       if (formData.wh_to) {
         try {
-          const response = await fetch(`http://localhost:8004/api/destination-locations/${formData.wh_to}`);
+          const response = await fetch(`${import.meta.env.VITE_FASTAPI_URL}/api/destination-locations/${formData.wh_to}`);
           if (response.ok) {
             const data = await response.json();
             setDestinationLocations(data);
-          } else {
-            console.error('Failed to fetch destination locations');
-            setDestinationLocations([]);
           }
         } catch (e: any) {
           console.error('Error fetching destination locations:', e);
@@ -200,7 +194,7 @@ const EditTransferPage: React.FC = () => {
     setSaving(true);
     try {
       // Call API to update transfer
-      const response = await fetch(`http://localhost:8004/api/transfers/${transferId}`, {
+      const response = await fetch(`${import.meta.env.VITE_FASTAPI_URL}/api/transfers/${transferId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
