@@ -55,6 +55,7 @@ const ImageManagementPage = () => {
 
   // Item update states
   const [updatingItems, setUpdatingItems] = useState<Record<string, boolean>>({});
+  const [uploadingItems, setUploadingItems] = useState<Record<string, boolean>>({}); // New state for uploads
   const [newImageUrls, setNewImageUrls] = useState<Record<string, string>>({});
 
   // Toast states
@@ -214,6 +215,42 @@ const ImageManagementPage = () => {
   }, []);
 
   // --- HANDLERS --- //
+
+  const handleFileUpload = async (itemCode: string, file: File) => {
+    if (!file) return;
+
+    setUploadingItems(prev => ({ ...prev, [itemCode]: true }));
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('item_code', itemCode); // Add item_code to the form data
+
+    try {
+      const response = await fetch(`${API_URL}/product/upload-image`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to upload file');
+      }
+
+      const result = await response.json();
+      if (result.success && result.url) {
+        setNewImageUrls(prev => ({ ...prev, [itemCode]: result.url }));
+        showCustomToast('ອັບໂຫລດໄຟລ໌ສຳເລັດ! ກະລຸນາກົດບັນທຶກ.', 'info');
+      } else {
+        throw new Error(result.error || 'Upload completed but no URL was returned.');
+      }
+
+    } catch (e: any) {
+      console.error('File upload error:', e);
+      showCustomToast(`ເກີດຂໍ້ຜິດພາດໃນການອັບໂຫລດ: ${e.message}`, 'danger');
+    } finally {
+      setUploadingItems(prev => ({ ...prev, [itemCode]: false }));
+    }
+  };
 
   const handleSaveImage = async (itemCode: string) => {
     const url = newImageUrls[itemCode];
@@ -483,10 +520,11 @@ const ImageManagementPage = () => {
                     <Row className="align-items-center">
                       <Col xs={4} sm={2} md={1} className="text-center">
                         <img 
-                          src={product.url_image || '/image/exam.jpg'} 
+                          src={newImageUrls[product.item_code] || product.url_image || '/image/exam.jpg'} 
                           alt={product.item_name}
                           className="img-fluid rounded"
                           style={{ maxHeight: '60px', border: '1px solid #eee' }}
+                          onError={(e) => (e.currentTarget.src = '/image/exam.jpg')}
                         />
                       </Col>
                       <Col xs={8} sm={4} md={4}>
@@ -494,27 +532,50 @@ const ImageManagementPage = () => {
                         <small className="text-muted">{product.item_code}</small>
                       </Col>
                       <Col xs={12} sm={6} md={5} className="mt-2 mt-sm-0">
-                        <Form.Control
-                          type="text"
-                          placeholder="ວາງ URL ຮູບພາບໃໝ່ທີ່ນີ້"
-                          value={newImageUrls[product.item_code] || ''}
-                          onChange={(e) => setNewImageUrls(prev => ({ ...prev, [product.item_code]: e.target.value }))}
-                        />
+                        <div className="d-flex">
+                          <Form.Control
+                            type="text"
+                            placeholder="ວາງ URL ຮູບພາບໃໝ່ທີ່ນີ້"
+                            value={newImageUrls[product.item_code] || ''}
+                            onChange={(e) => setNewImageUrls(prev => ({ ...prev, [product.item_code]: e.target.value }))}
+                            className="me-2"
+                          />
+                          <Form.Group controlId={`formFile-${product.item_code}`} className="mb-0">
+                             <Form.Label className="btn btn-success mb-0 d-flex align-items-center">
+                               {uploadingItems[product.item_code] ? (
+                                 <Spinner as="span" animation="border" size="sm" />
+                               ) : (
+                                 <i className="bi bi-upload"></i>
+                               )}
+                             </Form.Label>
+                             <Form.Control 
+                               type="file" 
+                               accept="image/*"
+                               style={{ display: 'none' }}
+                               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                 if (e.target.files && e.target.files[0]) {
+                                   handleFileUpload(product.item_code, e.target.files[0]);
+                                 }
+                               }}
+                               disabled={uploadingItems[product.item_code]}
+                             />
+                           </Form.Group>
+                        </div>
                       </Col>
                       <Col xs={12} sm={12} md={2} className="text-end mt-2 mt-md-0">
                         <div className="d-flex flex-column">
                           <Button 
                             variant="primary"
-                            disabled={!newImageUrls[product.item_code] || updatingItems[product.item_code]}
+                            disabled={!newImageUrls[product.item_code] || updatingItems[product.item_code] || uploadingItems[product.item_code]}
                             onClick={() => handleSaveImage(product.item_code)}
-                            className="w-100 me-2"
+                            className="w-100"
                           >
                             {updatingItems[product.item_code] ? <Spinner as="span" animation="border" size="sm" /> : <><i className="bi bi-save me-1"></i> ບັນທຶກ</>}
                           </Button>
                           <Button 
                             variant="info"
                             onClick={() => handleShowHistory(product)}
-                            className="w-100 mt-2 mt-md-0 history-btn"
+                            className="w-100 mt-2"
                           >
                             <i className="bi bi-clock-history me-1"></i> ປະຫວັດ
                           </Button>

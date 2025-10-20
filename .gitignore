@@ -43,3 +43,4 @@ parked_bills.json
 
 # Python cache
 __pycache__/
+\n# User uploaded files\nuploads/

@@ -175,6 +175,12 @@ async def check_price_product(
         print(f"ERROR: Exception in check_price_product: {e}")
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {e}")
 
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    database_status = "connected" if pool else "disconnected"
+    return {"status": "healthy", "database": database_status}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8005) # Using port 8005 to avoid conflict with main_simple.py (8004)

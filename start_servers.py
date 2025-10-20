@@ -1,6 +1,7 @@
 import subprocess
 import sys
 import os
+import time
 from dotenv import load_dotenv
 
 # Load environment variables from .env.development
@@ -19,6 +20,21 @@ scripts = [
     os.path.join(script_dir, "backend-python", "check_price_api.py") # Add new API here
 ]
 
+def check_port_availability(port):
+    """Check if a port is available"""
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(('localhost', port)) != 0
+
+def wait_for_port(port, timeout=10):
+    """Wait for a port to become available"""
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        if check_port_availability(port):
+            return True
+        time.sleep(0.5)
+    return False
+
 # Start each script in a new process
 processes = []
 for script in scripts:
@@ -35,6 +51,10 @@ for script in scripts:
             # Check if uvicorn is installed in the virtualenv
             # A more robust solution would be to activate the venv, but this is simpler for now.
             process = subprocess.Popen([venv_python, script], env=env_vars)
+        
+        elif "flask_pos_server.py" in script:
+            # Use system python for Flask server
+            process = subprocess.Popen([sys.executable, script], env=env_vars)
 
         else:
             process = subprocess.Popen([sys.executable, script], env=env_vars)
@@ -48,9 +68,15 @@ for script in scripts:
         for p in processes:
             p.terminate()
         sys.exit(1)
+    except Exception as e:
+        print(f"Error starting {script}: {str(e)}")
+        # Terminate other processes if one fails
+        for p in processes:
+            p.terminate()
+        sys.exit(1)
 
 
-print("\nBoth servers are starting up...")
+print("\nAll servers are starting up...")
 print("Press Ctrl+C to stop all servers.")
 
 try:
@@ -61,4 +87,10 @@ except KeyboardInterrupt:
     print("\nStopping all servers...")
     for process in processes:
         process.terminate()
+    # Wait a moment for processes to terminate
+    time.sleep(2)
+    # Force kill any remaining processes
+    for process in processes:
+        if process.poll() is None:  # If process is still running
+            process.kill()
     print("All servers have been stopped.")

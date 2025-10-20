@@ -535,6 +535,54 @@ def api_pos_billing():
         if conn:
             conn.close()
 
+import uuid
+from werkzeug.utils import secure_filename
+from flask import send_from_directory
+
+UPLOAD_FOLDER = 'uploads/image/product'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+@app.route('/uploads/image/product/<filename>')
+def uploaded_file(filename):
+    """Serves files from the nested product image directory."""
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+@app.route('/product/upload-image', methods=['POST'])
+def upload_product_image():
+    """Handle image upload, save it with a name including item_code, and return the URL."""
+    if 'file' not in request.files:
+        return jsonify({'success': False, 'error': 'No file part'}), 400
+    
+    if 'item_code' not in request.form:
+        return jsonify({'success': False, 'error': 'No item_code provided'}), 400
+
+    file = request.files['file']
+    item_code = request.form['item_code']
+    
+    if file.filename == '':
+        return jsonify({'success': False, 'error': 'No selected file'}), 400
+        
+    if file:
+        # Ensure the upload directory exists
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+        # Create a secure filename
+        original_filename = secure_filename(file.filename)
+        # Create a new unique filename based on item_code and uuid
+        unique_filename = f"{item_code}_{uuid.uuid4().hex[:8]}_{original_filename}"
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+        
+        try:
+            file.save(file_path)
+            # Construct the URL for the uploaded file
+            file_url = f"{request.host_url}uploads/image/product/{unique_filename}"
+            return jsonify({'success': True, 'url': file_url}), 201
+        except Exception as e:
+            print(f"Error saving file: {e}")
+            return jsonify({'success': False, 'error': 'Failed to save file on server'}), 500
+            
+    return jsonify({'success': False, 'error': 'Unknown error occurred'}), 500
+
 @app.route('/product/update-image', methods=['POST'])
 def update_product_image():
     """Update or insert a product image URL."""
