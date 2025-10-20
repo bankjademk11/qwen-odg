@@ -15,7 +15,8 @@ env_vars = os.environ.copy()
 # List of scripts to run with their absolute paths
 scripts = [
     os.path.join(script_dir, "flask_pos_server.py"),
-    os.path.join(script_dir, "backend-python", "main_simple.py")
+    os.path.join(script_dir, "backend-python", "main_simple.py"),
+    os.path.join(script_dir, "backend-python", "check_price_api.py") # Add new API here
 ]
 
 # Start each script in a new process
@@ -24,7 +25,7 @@ for script in scripts:
     try:
         # We use sys.executable to ensure we're using the same python interpreter
         # For the FastAPI server, we need to run it with uvicorn if it's not run directly
-        if "main_simple.py" in script:
+        if "main_simple.py" in script or "check_price_api.py" in script:
              # Assuming the venv is in the backend-python directory
             venv_python = os.path.join(script_dir, "backend-python", "venv", "bin", "python")
             if not os.path.exists(venv_python):

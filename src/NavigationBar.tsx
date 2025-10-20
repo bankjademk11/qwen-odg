@@ -76,6 +76,22 @@ function NavigationBar() {
             }}>
               <i className="bi bi-cart-plus"></i> ຄຳຂໍເຕີມສິນຄ້າ
             </Nav.Link>
+            <Nav.Link as={Link} to="/check-price" className="mx-2 px-3 py-2 rounded text-white fw-bold" style={{ 
+              fontSize: '1rem',
+              backgroundColor: 'rgba(255, 255, 255, 0.15)',
+              backdropFilter: 'blur(5px)',
+              border: '1px solid rgba(255, 255, 255, 0.2)'
+            }}>
+              <i className="bi bi-search"></i> ກວດສອບລາຄາສິນຄ້າ
+            </Nav.Link>
+            <Nav.Link as={Link} to="/image-management" className="mx-2 px-3 py-2 rounded text-white fw-bold" style={{ 
+              fontSize: '1rem',
+              backgroundColor: 'rgba(255, 255, 255, 0.15)',
+              backdropFilter: 'blur(5px)',
+              border: '1px solid rgba(255, 255, 255, 0.2)'
+            }}>
+              <i className="bi bi-images"></i> ຈັດການຮູບສິນຄ້າ
+            </Nav.Link>
             {
               isLoggedIn ? (
                 <Dropdown as={Nav.Item} align="end">

@@ -172,7 +172,6 @@ const POSPage = () => {
 
   return (
     <>
-      <NavigationBar />
       <Container fluid className="pos-container mt-4">
         <Row>
           {/* Product Selection */}

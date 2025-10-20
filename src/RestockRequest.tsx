@@ -365,7 +365,7 @@ function RestockRequest() {
 
   return (
     <div>
-      <NavigationBar />
+      
       <Container fluid className="mt-4">
         <Row className="mb-3 px-3 align-items-end">
             <Col md={2}>

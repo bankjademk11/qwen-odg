@@ -16,7 +16,7 @@ allowed_origins = [
 if frontend_ip_url:
     allowed_origins.append(frontend_ip_url)
 
-CORS(app, origins=allowed_origins)
+CORS(app, origins="*")
 
 # Database connection configuration
 DATABASE_CONFIG = {
@@ -89,6 +89,7 @@ def api_pos_product():
     search = request.args.get('search', '')  # คำค้นหา
     limit = request.args.get('limit', 30)  # จำนวนรายการต่อหน้า
     offset = request.args.get('offset', 0)  # ตำแหน่งเริ่มต้น
+    image_status = request.args.get('image_status', None) # Filter for image status
     
     conn = get_connection()
     if not conn:
@@ -128,6 +129,9 @@ def api_pos_product():
         if search:
             where_clauses.append("(a.ic_name ILIKE %s OR a.ic_code ILIKE %s)")
             params.extend([f"%{search}%", f"%{search}%"])
+
+        if image_status == 'missing':
+            where_clauses.append("((SELECT url_image FROM product_image WHERE ic_code = a.ic_code AND line_number = 1) IS NULL OR (SELECT url_image FROM product_image WHERE ic_code = a.ic_code AND line_number = 1) = '')")
 
         if where_clauses:
             query += " WHERE " + " AND ".join(where_clauses)
@@ -531,6 +535,278 @@ def api_pos_billing():
         if conn:
             conn.close()
 
+@app.route('/product/update-image', methods=['POST'])
+def update_product_image():
+    """Update or insert a product image URL."""
+    data = request.get_json()
+    item_code = data.get('item_code')
+    new_image_url = data.get('new_image_url')
+    changed_by = data.get('changed_by', 'SYSTEM') # Get changed_by from payload, default to 'SYSTEM'
+
+    if not item_code or not new_image_url:
+        return jsonify({'success': False, 'error': 'item_code and new_image_url are required'}), 400
+
+    conn = get_connection()
+    if not conn:
+        return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+    cur = conn.cursor()
+    try:
+        conn.autocommit = False # Start transaction
+
+        # 1. Fetch current image URL (old_url_image)
+        current_image_query = "SELECT url_image FROM product_image WHERE ic_code = %s AND line_number = 1"
+        cur.execute(current_image_query, (item_code,))
+        current_image_result = cur.fetchone()
+        old_url_image = current_image_result[0] if current_image_result else None
+
+        # 2. Record history
+        history_query = """
+        INSERT INTO product_image_history (item_code, old_url_image, new_url_image, changed_by, action_type)
+        VALUES (%s, %s, %s, %s, %s);
+        """
+        cur.execute(history_query, (item_code, old_url_image, new_image_url, changed_by, 'UPDATE'))
+
+        # 3. Check if a record already exists for this item_code and line_number
+        check_query = "SELECT roworder FROM product_image WHERE ic_code = %s AND line_number = 1"
+        cur.execute(check_query, (item_code,))
+        existing_record = cur.fetchone()
+        
+        if existing_record:
+            # Update existing record
+            update_query = """
+            UPDATE product_image
+            SET url_image = %s
+            WHERE ic_code = %s AND line_number = 1;
+            """
+            cur.execute(update_query, (new_image_url, item_code))
+        else:
+            # Insert new record
+            # First, get the next roworder value
+            cur.execute("SELECT COALESCE(MAX(roworder), 0) + 1 FROM product_image")
+            next_roworder = cur.fetchone()[0]
+            
+            insert_query = """
+            INSERT INTO product_image (roworder, ic_code, line_number, url_image)
+            VALUES (%s, %s, 1, %s);
+            """
+            cur.execute(insert_query, (next_roworder, item_code, new_image_url))
+        
+        conn.commit() # Commit transaction
+
+        return jsonify({'success': True, 'message': f'Image for {item_code} updated successfully.'}), 200
+
+    except Exception as e:
+        conn.rollback() # Rollback on error
+        print(f"Error updating product image: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+@app.route('/product/image-history/<item_code>', methods=['GET'])
+def get_product_image_history(item_code):
+    """Get the image history for a specific product."""
+    conn = get_connection()
+    if not conn:
+        return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+    
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    try:
+        query = """
+        SELECT id, item_code, old_url_image, new_url_image, changed_by, change_timestamp, action_type
+        FROM product_image_history
+        WHERE item_code = %s
+        ORDER BY change_timestamp DESC;
+        """
+        cur.execute(query, (item_code,))
+        history_records = cur.fetchall()
+        
+        return jsonify({'success': True, 'history': history_records}), 200
+
+    except Exception as e:
+        print(f"Error fetching image history for {item_code}: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+@app.route('/product/image-history-all', methods=['GET'])
+def get_all_image_history():
+    """Get the image history for all products with pagination."""
+    conn = get_connection()
+    if not conn:
+        return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+    
+    # Get pagination parameters
+    limit = request.args.get('limit', 50, type=int)
+    offset = request.args.get('offset', 0, type=int)
+    
+    # Get filter parameters
+    search_term = request.args.get('search', '')
+    start_date = request.args.get('start_date', '')
+    end_date = request.args.get('end_date', '')
+    
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    try:
+        # Base query with product name join
+        query = """
+        SELECT 
+            h.id, 
+            h.item_code, 
+            h.old_url_image, 
+            h.new_url_image, 
+            h.changed_by, 
+            h.change_timestamp, 
+            h.action_type,
+            COALESCE(i.name_1, '') as item_name
+        FROM product_image_history h
+        LEFT JOIN ic_inventory i ON h.item_code = i.code
+        """
+        
+        # Build WHERE clause
+        where_clauses = []
+        params = []
+        
+        if search_term:
+            where_clauses.append("(h.item_code ILIKE %s OR h.changed_by ILIKE %s OR i.name_1 ILIKE %s)")
+            params.extend([f"%{search_term}%", f"%{search_term}%", f"%{search_term}%"])
+            
+        if start_date:
+            where_clauses.append("h.change_timestamp >= %s")
+            params.append(start_date)
+            
+        if end_date:
+            where_clauses.append("h.change_timestamp <= %s")
+            params.append(end_date)
+        
+        if where_clauses:
+            query += " WHERE " + " AND ".join(where_clauses)
+        
+        # Add ordering
+        query += " ORDER BY h.change_timestamp DESC"
+        
+        # Add pagination
+        query += " LIMIT %s OFFSET %s"
+        params.extend([limit, offset])
+        
+        cur.execute(query, params)
+        history_records = cur.fetchall()
+        
+        # Get total count for pagination
+        count_query = "SELECT COUNT(*) as count FROM product_image_history h"
+        
+        # Add join for count query if we have search terms that involve product name
+        if search_term:
+            count_query += " LEFT JOIN ic_inventory i ON h.item_code = i.code"
+        
+        count_params = []
+        
+        if where_clauses:
+            count_query += " WHERE " + " AND ".join(where_clauses)
+            count_params = params[:-2]  # Remove limit and offset params
+        
+        cur.execute(count_query, count_params)
+        total_count = cur.fetchone()['count']
+        
+        # Get unique product count
+        unique_count_query = "SELECT COUNT(DISTINCT item_code) as unique_count FROM product_image_history h"
+        unique_count_params = []
+        
+        if where_clauses:
+            # Remove the search term conditions that involve product name for the unique count
+            unique_where_clauses = []
+            unique_params = []
+            
+            for i, clause in enumerate(where_clauses):
+                if "name_1" not in clause:
+                    unique_where_clauses.append(clause)
+                    # Add corresponding params
+                    if "ILIKE" in clause:
+                        unique_params.extend([params[i*3], params[i*3+1]])  # For item_code and changed_by
+                    else:
+                        unique_params.append(params[len([c for c in where_clauses[:i] if "name_1" not in c]) * (2 if "ILIKE" in clause else 1)])
+            
+            if unique_where_clauses:
+                unique_count_query += " WHERE " + " AND ".join(unique_where_clauses)
+                unique_count_params = unique_params
+        
+        cur.execute(unique_count_query, unique_count_params)
+        unique_product_count = cur.fetchone()['unique_count']
+        
+        return jsonify({
+            'success': True, 
+            'history': history_records,
+            'total_count': total_count,
+            'unique_product_count': unique_product_count,
+            'limit': limit,
+            'offset': offset
+        }), 200
+
+    except Exception as e:
+        print(f"Error fetching global image history: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/product/image-revert/<int:history_id>', methods=['POST'])
+def revert_product_image(history_id):
+    """Revert a product image to a previous version."""
+    conn = get_connection()
+    if not conn:
+        return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+    cur = conn.cursor()
+    # Initialize variables to avoid "possibly unbound" errors
+    item_code = None
+    try:
+        conn.autocommit = False # Start transaction
+
+        # 1. Fetch the history record
+        history_query = "SELECT item_code, old_url_image FROM product_image_history WHERE id = %s"
+        cur.execute(history_query, (history_id,))
+        history_record = cur.fetchone()
+        if not history_record:
+            return jsonify({'success': False, 'error': 'History record not found'}), 404
+
+        item_code = history_record['item_code']
+        old_url_image = history_record['old_url_image']
+
+        # 2. Record history
+        history_query = """
+        INSERT INTO product_image_history (item_code, old_url_image, new_url_image, changed_by, action_type)
+        VALUES (%s, %s, %s, %s, %s);
+        """
+        cur.execute(history_query, (item_code, old_url_image, old_url_image, 'SYSTEM', 'REVERT'))
+
+        # 3. Update the product image
+        update_query = """
+        UPDATE product_image
+        SET url_image = %s
+        WHERE ic_code = %s AND line_number = 1;
+        """
+        cur.execute(update_query, (old_url_image, item_code))
+
+        conn.commit() # Commit transaction
+
+        return jsonify({'success': True, 'message': f'Image for {item_code} reverted successfully to history ID {history_id}.'}), 200
+
+    except Exception as e:
+        conn.rollback() # Rollback on error
+        error_msg = f"Error reverting product image for {item_code}: {str(e)}" if item_code else f"Error reverting product image: {str(e)}"
+        print(error_msg)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
 @app.route('/api/sales-history-db', methods=['GET'])
 def api_sales_history_db():
     """Get sales history from the database with pagination and filtering."""
@@ -570,7 +846,7 @@ def api_sales_history_db():
         if selected_date:
             where_clauses.append("it.doc_date = %s")
             params.append(selected_date)
-        
+
         if search_term:
             search_pattern = f"%{search_term.lower()}%"
             where_clauses.append("(LOWER(it.doc_no) LIKE %s OR LOWER(ac.name_1) LIKE %s)")
@@ -580,7 +856,7 @@ def api_sales_history_db():
             base_query += " AND " + " AND ".join(where_clauses)
 
         base_query += " ORDER BY it.doc_date DESC, it.doc_time DESC"
-        
+
         # Query for total count (without limit/offset)
         count_query = f"SELECT COUNT(*) FROM ({base_query}) AS subquery"
         cur.execute(count_query, params)
@@ -592,23 +868,23 @@ def api_sales_history_db():
 
         cur.execute(base_query, params)
         result = cur.fetchall()
-        
+
         # For each transaction, fetch the product details
         for transaction in result:
             detail_query = """
-            SELECT 
+            SELECT
                 item_code,
                 item_name,
                 unit_code,
                 qty,
                 price_2 as price
-            FROM ic_trans_detail 
-            WHERE doc_no = %s 
+            FROM ic_trans_detail
+            WHERE doc_no = %s
             ORDER BY line_number
             """
             cur.execute(detail_query, (transaction['doc_no'],))
             transaction['items'] = cur.fetchall()
-        
+
         return jsonify({'list': result, 'totalCount': total_count}), 200
 
     except Exception as e:
@@ -620,7 +896,6 @@ def api_sales_history_db():
             cur.close()
         if conn:
             conn.close()
-
 
 import json
 import time

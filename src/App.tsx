@@ -14,6 +14,8 @@ import AnalysisPage from './AnalysisPage';
 import POSPage from './POSPage';
 import POSPageFlask from './POSPageFlask';
 import HistoryPage from './HistoryPage';
+import CheckPricePage from './CheckPricePage'; // New import
+import ImageManagementPage from './ImageManagementPage'; // Add new page for image management
 
 function App() {
   return (
@@ -65,6 +67,8 @@ function App() {
           <Route path="/pos" element={<POSPage />} />
           <Route path="/pos-flask" element={<POSPageFlask />} />
           <Route path="/history" element={<HistoryPage />} />
+          <Route path="/check-price" element={<CheckPricePage />} /> {/* New route */}
+          <Route path="/image-management" element={<ImageManagementPage />} />
         </Routes>
       </div>
     </Router>

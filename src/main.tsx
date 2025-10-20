@@ -14,6 +14,9 @@ import POSPage from './POSPage'; // <--- Import POS Page
 import POSPageFlask from './POSPageFlask'; // <--- Import Flask POS Page
 import MiniMarketBillPage from './MiniMarketBillPage'; // <--- Import MiniMarketBillPage
 import SalesHistoryPage from './SalesHistoryPage'; // <--- Import SalesHistoryPage
+import CheckPricePage from './CheckPricePage'; // <--- Import CheckPricePage
+import ImageManagementPage from './ImageManagementPage';
+import NavigationBar from './NavigationBar'; // Import NavigationBar
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import './index.css';
@@ -30,6 +33,7 @@ const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
+      <NavigationBar />
       <Routes>
         <Route path="/login" element={<LoginPage />} /> {/* Login Page is not protected */}
         <Route
@@ -121,6 +125,22 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           element={
             <ProtectedRoute>
               <SalesHistoryPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/check-price"
+          element={
+            <ProtectedRoute>
+              <CheckPricePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/image-management"
+          element={
+            <ProtectedRoute>
+              <ImageManagementPage />
             </ProtectedRoute>
           }
         />

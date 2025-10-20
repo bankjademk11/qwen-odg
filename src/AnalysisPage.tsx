@@ -30,7 +30,7 @@ const AnalysisPage: React.FC = () => {
   if (loading) {
     return (
       <div>
-        <NavigationBar />
+        
         <Container className="mt-4">
           <h2>Analysis Data (Loading...)</h2>
           <p>Loading analysis data from backend...</p>
@@ -42,7 +42,7 @@ const AnalysisPage: React.FC = () => {
   if (error) {
     return (
       <div>
-        <NavigationBar />
+        
         <Container className="mt-4">
           <h2>Analysis Data (Error)</h2>
           <p>Error: {error}</p>
@@ -54,7 +54,7 @@ const AnalysisPage: React.FC = () => {
 
   return (
     <div>
-      <NavigationBar />
+      
       <Container className="mt-4">
         <h2>Analysis Data</h2>
         {data.length === 0 ? (

@@ -40,7 +40,7 @@ const TransferDetailsPage: React.FC = () => {
   if (loading) {
     return (
       <div>
-        <NavigationBar />
+        
         <Container className="mt-4 text-center">
           <Spinner animation="border" role="status">
             <span className="visually-hidden">Loading...</span>
@@ -54,7 +54,7 @@ const TransferDetailsPage: React.FC = () => {
   if (error) {
     return (
       <div>
-        <NavigationBar />
+        
         <Container className="mt-4">
           <h2>ເກີດຂໍ້ຜິດພາດ</h2>
           <p>{error}</p>
@@ -67,7 +67,7 @@ const TransferDetailsPage: React.FC = () => {
   if (!transfer) {
     return (
       <div>
-        <NavigationBar />
+        
         <Container className="mt-4">
           <h2>ບໍ່ພົບຂໍ້ມູນການໂອນ</h2>
           <p>ບໍ່ສາມາດໂຫລດລາຍລະອຽດໄດ້. ກະລຸນາກັບไปທີ່ລາຍການຂໍ.</p>
@@ -79,7 +79,7 @@ const TransferDetailsPage: React.FC = () => {
 
   return (
     <div>
-      <NavigationBar />
+      
       <Container className="mt-4">
         <h2>ລາຍລະອຽດຂໍໂອນ: {transfer.transfer_no || transfer.doc_no || transfer.id || 'ບໍ່ມີຂໍ້ມູນ'}</h2>
         <Card className="mb-4">

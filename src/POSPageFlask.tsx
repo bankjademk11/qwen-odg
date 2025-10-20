@@ -528,7 +528,6 @@ const POSPageFlask = () => {
 
   return (
     <>
-      <NavigationBar />
       <Container fluid className="pos-container mt-4">
         <Row>
           {/* Left Sidebar for POS functions */}

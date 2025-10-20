@@ -1,0 +1,464 @@
+/* Responsive adjustments for different screen sizes */
+@media (max-width: 992px) {
+    .product-list-container {
+        padding: 15px;
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    }
+    
+    .product-list-header h1 {
+        font-size: 1.6rem;
+        color: #004085;
+    }
+    
+    .product-list-header p {
+        font-size: 0.9rem;
+        color: #007bff;
+    }
+    
+    .filter-section {
+        padding: 12px;
+    }
+    
+    .product-image-container {
+        min-height: 160px;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e3f2fd 100%);
+    }
+    
+    .product-image-container img {
+        max-width: 130px;
+        max-height: 130px;
+    }
+    
+    .product-details h2.product-name {
+        font-size: 1.3rem;
+        color: #004085;
+    }
+    
+    .detail-item {
+        padding: 0.5rem;
+        margin-bottom: 0.8rem;
+        background-color: #f8f9fa;
+    }
+    
+    .detail-item:hover {
+        background-color: #e3f2fd;
+    }
+    
+    .detail-label {
+        color: #007bff;
+    }
+    
+    .detail-value {
+        color: #004085;
+    }
+    
+    /* Enhanced responsive price display with green color */
+    .detail-value .price-display {
+        font-size: 1.8rem;
+        padding: 0.4rem;
+        color: #28a745;
+    }
+    
+    .not-found-alert {
+        background: linear-gradient(120deg, #e3f2fd 0%, #bbdefb 100%);
+        color: #004085;
+    }
+    
+    .product-table .card-header {
+        background: linear-gradient(120deg, #007bff, #0056b3);
+    }
+}
+
+@media (max-width: 768px) {
+    .product-list-container {
+        padding: 12px;
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    }
+    
+    .product-list-header {
+        padding-bottom: 12px;
+        margin-bottom: 15px;
+        border-bottom: 2px solid #007bff;
+    }
+    
+    .product-list-header h1 {
+        font-size: 1.5rem;
+        color: #004085;
+    }
+    
+    .product-list-header p {
+        color: #007bff;
+    }
+    
+    .filter-section {
+        padding: 10px;
+        margin-bottom: 15px;
+    }
+    
+    .filter-row .form-label {
+        font-size: 0.85rem;
+        color: #007bff;
+    }
+    
+    .filter-row .form-control-sm {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.35rem;
+        border: 1px solid #007bff;
+    }
+    
+    .filter-row .form-control-sm:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    
+    .product-table {
+        margin-bottom: 15px;
+    }
+    
+    .product-table .card-header {
+        padding: 0.8rem 1rem;
+        background: linear-gradient(120deg, #007bff, #0056b3);
+    }
+    
+    .product-table .card-header h5 {
+        font-size: 1rem;
+        color: #ffffff;
+    }
+    
+    .product-image-container {
+        min-height: 140px;
+        margin-bottom: 15px;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e3f2fd 100%);
+    }
+    
+    .product-image-container img {
+        max-width: 120px;
+        max-height: 120px;
+    }
+    
+    .product-details h2.product-name {
+        font-size: 1.2rem;
+        margin-bottom: 1rem;
+        color: #004085;
+        border-bottom: 1px dashed #bbdefb;
+    }
+    
+    .detail-item {
+        padding: 0.4rem;
+        margin-bottom: 0.7rem;
+        background-color: #f8f9fa;
+    }
+    
+    .detail-item:hover {
+        background-color: #e3f2fd;
+    }
+    
+    .detail-label {
+        font-size: 0.85rem;
+        color: #007bff;
+    }
+    
+    .detail-value {
+        font-size: 0.9rem;
+        color: #004085;
+    }
+    
+    /* Enhanced responsive price display with green color */
+    .detail-value .price-display {
+        font-size: 1.6rem;
+        padding: 0.3rem;
+        color: #28a745;
+    }
+    
+    .empty-state-card {
+        background: #ffffff;
+    }
+    
+    .empty-state-card h3 {
+        font-size: 1.2rem;
+        color: #004085;
+    }
+    
+    .empty-state-card .text-muted {
+        font-size: 0.85rem;
+        color: #007bff !important;
+    }
+    
+    .not-found-alert {
+        padding: 0.8rem;
+        background: linear-gradient(120deg, #e3f2fd 0%, #bbdefb 100%);
+        color: #004085;
+    }
+    
+    .not-found-alert .alert-heading {
+        font-size: 1rem;
+        color: #004085;
+    }
+    
+    .not-found-alert p {
+        font-size: 0.85rem;
+        color: #004085;
+    }
+    
+    .not-found-alert strong {
+        color: #004085;
+    }
+    
+    .form-label-search {
+        font-size: 0.85rem;
+        color: #007bff;
+    }
+    
+    .input-group-text {
+        background: linear-gradient(120deg, #007bff, #0056b3);
+        color: white;
+        border: 1px solid #0056b3;
+        padding: 0.2rem 0.35rem;
+        font-size: 0.8rem;
+    }
+    
+    .form-control-lg {
+        padding: 0.35rem 0.49rem;
+        font-size: 0.9rem;
+        border: 1px solid #007bff;
+    }
+    
+    .form-control-lg:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+}
+
+@media (max-width: 576px) {
+    .product-list-container {
+        padding: 10px;
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    }
+    
+    .product-list-header {
+        padding-bottom: 10px;
+        margin-bottom: 12px;
+        border-bottom: 2px solid #007bff;
+    }
+    
+    .product-list-header h1 {
+        font-size: 1.3rem;
+        color: #004085;
+    }
+    
+    .product-list-header p {
+        font-size: 0.85rem;
+        color: #007bff;
+    }
+    
+    .filter-section {
+        padding: 8px;
+        margin-bottom: 12px;
+    }
+    
+    .filter-row .form-group {
+        margin-bottom: 0.4rem;
+    }
+    
+    .filter-row .form-label {
+        font-size: 0.8rem;
+        margin-bottom: 0.2rem;
+        color: #007bff;
+    }
+    
+    .filter-row .form-control-sm {
+        font-size: 0.75rem;
+        padding: 0.2rem 0.28rem;
+        border: 1px solid #007bff;
+    }
+    
+    .filter-row .form-control-sm:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    
+    .input-group-text {
+        padding: 0.2rem 0.35rem;
+        font-size: 0.8rem;
+        background: linear-gradient(120deg, #007bff, #0056b3);
+        border: 1px solid #0056b3;
+    }
+    
+    .form-control-lg {
+        padding: 0.35rem 0.49rem;
+        font-size: 0.9rem;
+        border: 1px solid #007bff;
+    }
+    
+    .form-control-lg:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    
+    .form-label-search {
+        font-size: 0.8rem;
+        margin-bottom: 0.2rem;
+        color: #007bff;
+    }
+    
+    .product-table {
+        margin-bottom: 12px;
+    }
+    
+    .product-table .card-header {
+        padding: 0.7rem 0.9rem;
+        background: linear-gradient(120deg, #007bff, #0056b3);
+    }
+    
+    .product-table .card-header h5 {
+        font-size: 0.9rem;
+        color: #ffffff;
+    }
+    
+    .product-image-container {
+        min-height: 120px;
+        margin-bottom: 12px;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e3f2fd 100%);
+    }
+    
+    .product-image-container img {
+        max-width: 100px;
+        max-height: 100px;
+    }
+    
+    .product-details h2.product-name {
+        font-size: 1.1rem;
+        margin-bottom: 0.8rem;
+        padding-bottom: 0.6rem;
+        color: #004085;
+        border-bottom: 1px dashed #bbdefb;
+    }
+    
+    .detail-item {
+        padding: 0.3rem;
+        margin-bottom: 0.6rem;
+        background-color: #f8f9fa;
+    }
+    
+    .detail-item:hover {
+        background-color: #e3f2fd;
+    }
+    
+    .detail-label {
+        font-size: 0.8rem;
+        color: #007bff;
+    }
+    
+    .detail-value {
+        font-size: 0.85rem;
+        color: #004085;
+    }
+    
+    /* Enhanced responsive price display with green color */
+    .detail-value .price-display {
+        font-size: 1.4rem;
+        padding: 0.25rem;
+        color: #28a745;
+    }
+    
+    .empty-state-card {
+        padding: 15px;
+        background: #ffffff;
+    }
+    
+    .empty-state-card h3 {
+        font-size: 1.1rem;
+        color: #004085;
+    }
+    
+    .empty-state-card .text-muted {
+        font-size: 0.85rem;
+        color: #007bff !important;
+    }
+    
+    .not-found-alert {
+        padding: 0.7rem;
+        background: linear-gradient(120deg, #e3f2fd 0%, #bbdefb 100%);
+        color: #004085;
+    }
+    
+    .not-found-alert .alert-heading {
+        font-size: 0.9rem;
+        color: #004085;
+    }
+    
+    .not-found-alert p {
+        font-size: 0.8rem;
+        color: #004085;
+    }
+    
+    .not-found-alert strong {
+        color: #004085;
+    }
+}
+
+.product-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.product-details h2.product-name {
+    font-size: 1.7rem; /* Increased font size */
+    font-weight: 600; /* Bolder font */
+    color: #003366; /* Darker blue color */
+    margin-bottom: 1rem;
+}
+
+.detail-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    background-color: #f8f9fa;
+    border-radius: 0.25rem;
+    transition: background-color 0.2s ease-in-out;
+}
+
+.detail-item:hover {
+    background-color: #e9ecef;
+}
+
+.detail-label {
+    display: flex;
+    align-items: center;
+    color: #495057;
+    font-weight: 500;
+}
+
+.detail-label svg {
+    color: #007bff;
+}
+
+.detail-value {
+    color: #212529;
+    font-weight: 500;
+}
+
+.price-section {
+    background-color: #e6f9f0;
+    border: 1px solid #b6e9d1;
+    border-radius: 0.3rem;
+    padding: 1.2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.price-label {
+    font-size: 1.5rem; /* Increased font size */
+    font-weight: bold;
+    color: #1a8e5a;
+}
+
+.price-value {
+    font-size: 2.5rem; /* Increased font size */
+    font-weight: 900; /* Bolder font */
+    color: #1a8e5a; /* Adjusted color */
+    letter-spacing: 1px;
+}

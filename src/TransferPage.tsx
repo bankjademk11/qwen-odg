@@ -91,7 +91,7 @@ const TransferPage: React.FC = () => {
 
   return (
     <div>
-      <NavigationBar />
+      
       <Container className="mt-4">
         <div className="filter-section">
           <Row className="filter-row justify-content-between">

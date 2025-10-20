@@ -160,7 +160,7 @@ const ProductList: React.FC = () => {
   if (loading && offset === 0) {
     return (
       <div>
-        <NavigationBar />
+        
         <Container className="mt-4">
           <div className="product-list-container">
             <div className="product-list-header">
@@ -178,7 +178,7 @@ const ProductList: React.FC = () => {
   if (error) {
     return (
       <div>
-        <NavigationBar />
+        
         <Container className="mt-4">
           <div className="product-list-container">
             <div className="product-list-header">
@@ -196,7 +196,7 @@ const ProductList: React.FC = () => {
 
   return (
     <div>
-      <NavigationBar />
+      
       <Container className="mt-4">
         <div className="product-list-container">
           <div className="product-list-header">
