@@ -38,6 +38,12 @@ const ImageManagementPage = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Pagination states
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const LIMIT = 50;
+
   // Filter states
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [locations, setLocations] = useState<any[]>([]);
@@ -51,7 +57,6 @@ const ImageManagementPage = () => {
 
   // Search debounce
   const debouncedSearchTerm = useRef<string>('');
-  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Item update states
   const [updatingItems, setUpdatingItems] = useState<Record<string, boolean>>({});
@@ -71,18 +76,28 @@ const ImageManagementPage = () => {
   const [globalHistoryData, setGlobalHistoryData] = useState<ImageHistoryRecord[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [loadingGlobalHistory, setLoadingGlobalHistory] = useState(false);
-  // Removed revert functionality as it was not working as intended
-  const [globalHistoryCount, setGlobalHistoryCount] = useState<number>(0); // Total count of history records
+  const [globalHistoryCount, setGlobalHistoryCount] = useState<number>(0); 
 
-  // Add new state for global image URL updates
   const [globalNewImageUrls, setGlobalNewImageUrls] = useState<Record<string, string>>({});
 
-  // Add new states for global history filtering
   const [globalHistoryFilter, setGlobalHistoryFilter] = useState({
     searchTerm: '',
     startDate: '',
     endDate: ''
   });
+
+  // --- Intersection Observer for Infinite Scroll ---
+  const observer = useRef<IntersectionObserver>();
+  const lastProductElementRef = useCallback((node: HTMLAnchorElement | null) => {
+    if (loading || loadingMore) return;
+    if (observer.current) observer.current.disconnect();
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore) {
+        setOffset(prevOffset => prevOffset + LIMIT);
+      }
+    });
+    if (node) observer.current.observe(node);
+  }, [loading, loadingMore, hasMore]);
 
   const showCustomToast = (message: string, variant: string = 'success') => {
     setToastMessage(message);
@@ -133,17 +148,23 @@ const ImageManagementPage = () => {
     }
   }, [selectedWarehouse, selectedLocation]);
 
-  const fetchProducts = useCallback(async () => {
-    setLoading(true);
+  const fetchProducts = useCallback(async (currentOffset: number) => {
+    const isInitialLoad = currentOffset === 0;
+    if (isInitialLoad) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
     setError(null);
+
     try {
       const params = new URLSearchParams({
         whcode: selectedWarehouse,
         loccode: selectedLocation,
         search: debouncedSearchTerm.current,
-        limit: '1000', // Fetch a large number, as this page is for management
-        offset: '0',
-        image_status: 'missing' // The crucial filter
+        limit: String(LIMIT),
+        offset: String(currentOffset),
+        image_status: 'missing'
       });
       
       if (selectedCategory !== 'All') {
@@ -153,14 +174,20 @@ const ImageManagementPage = () => {
       const response = await fetch(`${API_URL}/product?${params.toString()}`);
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const data = await response.json();
-      
-      setProducts(data.list || []);
+      const newProducts = data.list || [];
+
+      setProducts(prev => isInitialLoad ? newProducts : [...prev, ...newProducts]);
+      setHasMore(newProducts.length === LIMIT);
 
     } catch (e: any) {
       setError(e.message);
       showCustomToast('ເກີດຂໍ້ຜິດພາດໃນການໂຫຼດຂໍ້ມູນສິນຄ້າ', 'danger');
     } finally {
-      setLoading(false);
+      if (isInitialLoad) {
+        setLoading(false);
+      } else {
+        setLoadingMore(false);
+      }
     }
   }, [selectedWarehouse, selectedLocation, selectedCategory]);
 
@@ -168,6 +195,7 @@ const ImageManagementPage = () => {
 
   useEffect(() => {
     fetchWarehouses();
+    fetchGlobalHistoryCount();
   }, []);
 
   useEffect(() => {
@@ -180,39 +208,45 @@ const ImageManagementPage = () => {
     fetchCategories();
   }, [fetchCategories]);
 
+  // Effect for fetching products based on offset
+  useEffect(() => {
+    fetchProducts(offset);
+  }, [offset, fetchProducts]);
+
+  // Effect for resetting products on filter change
+  useEffect(() => {
+    setProducts([]);
+    setOffset(0);
+    setHasMore(true);
+    // The actual fetch is triggered by the offset change
+  }, [selectedCategory, selectedWarehouse, selectedLocation, debouncedSearchTerm.current]);
+
   // Debounce search term
   useEffect(() => {
-    if (searchTimeout.current) clearTimeout(searchTimeout.current);
-    searchTimeout.current = setTimeout(() => {
-      debouncedSearchTerm.current = searchTerm;
-      fetchProducts();
-    }, 500);
-    return () => {
-      if (searchTimeout.current) clearTimeout(searchTimeout.current);
-    };
-  }, [searchTerm, fetchProducts]);
-
-  // Refetch products when filters change
-  useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts, selectedCategory, selectedWarehouse, selectedLocation]);
-
-  // Add a useEffect to fetch the global history count when the component mounts
-  useEffect(() => {
-    const fetchGlobalHistoryCount = async () => {
-      try {
-        const response = await fetch(`${API_URL}/product/image-history-all?limit=1`);
-        if (response.ok) {
-          const data = await response.json();
-          setGlobalHistoryCount(data.total_count || 0);
+    const handler = setTimeout(() => {
+        if (searchTerm !== debouncedSearchTerm.current) {
+            debouncedSearchTerm.current = searchTerm;
+            setProducts([]);
+            setOffset(0);
+            setHasMore(true);
+            // The fetch will be triggered by the offset state change in the above useEffect
         }
-      } catch (e) {
-        console.error("Failed to fetch global history count:", e);
-      }
-    };
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
 
-    fetchGlobalHistoryCount();
-  }, []);
+
+  const fetchGlobalHistoryCount = async () => {
+    try {
+      const response = await fetch(`${API_URL}/product/image-history-all?limit=1`);
+      if (response.ok) {
+        const data = await response.json();
+        setGlobalHistoryCount(data.total_count || 0);
+      }
+    } catch (e) {
+      console.error("Failed to fetch global history count:", e);
+    }
+  };
 
   // --- HANDLERS --- //
 
@@ -387,7 +421,7 @@ const ImageManagementPage = () => {
       
       // Refresh global history and main product list
       await handleShowGlobalHistory();
-      fetchProducts();
+      fetchProducts(0); // Pass the initial offset value
 
       // Clear the input field
       setGlobalNewImageUrls(prev => {
@@ -515,8 +549,8 @@ const ImageManagementPage = () => {
               <Alert variant="danger">{error}</Alert>
             ) : (
               <ListGroup variant="flush">
-                {products.map(product => (
-                  <ListGroup.Item key={product.item_code} className="px-0">
+                {products.map((product, index) => (
+                  <ListGroup.Item ref={products.length === index + 1 ? lastProductElementRef : null} key={product.item_code} className="px-0">
                     <Row className="align-items-center">
                       <Col xs={4} sm={2} md={1} className="text-center">
                         <img 
@@ -585,6 +619,20 @@ const ImageManagementPage = () => {
                     </Row>
                   </ListGroup.Item>
                 ))}
+                
+                {loadingMore && (
+                  <div className="text-center p-4">
+                    <Spinner animation="border" size="sm" />
+                    <p className="mt-2 mb-0">ກຳລັງໂຫຼດເພີ່ມ...</p>
+                  </div>
+                )}
+
+                {!hasMore && products.length > 0 && (
+                  <div className="text-center text-muted p-4">
+                    <p className="mb-0">ສິນຄ້າທັງໝົດຖືກສະແດງແລ້ວ</p>
+                  </div>
+                )}
+
                 {products.length === 0 && !loading && (
                     <div className="text-center text-muted p-5">
                         <i className="bi bi-check-circle-fill fs-1 text-success"></i>
